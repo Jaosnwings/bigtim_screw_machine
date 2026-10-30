@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>alarm</title>
+<link rel="stylesheet" href="common.css"></head>
+<body><div id="scr"></div>
+<script src="common.js"></script>
+<script>
+// 警報參數頁（Screen 4）。座標＝Fable 定案 C.4。
+render([
+  [0, 0, 800, 44, 'rect', '', { bg: 'TB' }],
+  [0, 44, 800, 2, 'rect', '', { bg: 'TL' }],
+  [12, 7, 400, 30, 'text', 'MC-D002 鎖螺絲站　警報參數', { fg: 'TT', fs: 24 }],
+  [706, 7, 88, 35, 'btn', '回自動頁面', { bg: 'BR', fs: 15 }],
+  [10, 54, 470, 414, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
+  [18, 58, 160, 22, 'text', '警報歷史', { fs: 17 }],
+  [16, 80, 458, 382, 'rect', '', { bg: 'WH', css: 'border:1px solid #888' }],
+  [486, 54, 308, 414, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
+  [494, 58, 200, 22, 'text', '逾時參數（秒）', { fs: 17 }],
+  [494, 91, 150, 18, 'text', '啟動逾時秒', { fs: 16 }],
+  [676, 88, 108, 24, 'bbox', ''],
+  [494, 131, 150, 18, 'text', '鎖付逾時秒', { fs: 16 }],
+  [676, 128, 108, 24, 'bbox', ''],
+  [494, 171, 150, 18, 'text', '原點逾時秒', { fs: 16 }],
+  [676, 168, 108, 24, 'bbox', ''],
+  [494, 211, 150, 18, 'text', '模擬鎖付秒', { fs: 16 }],
+  [676, 208, 108, 24, 'bbox', ''],
+  [494, 250, 290, 60, 'text', '單位：秒（0.1 秒刻度）<br>只在停止中修改', { fs: 14, lh: 1.6, css: 'white-space:normal;align-items:flex-start;color:#455A64' }],
+  // demo
+  [676, 88, 108, 24, 'bbox', '3.0', { demo: 1, fs: 17 }],
+  [676, 128, 108, 24, 'bbox', '15.0', { demo: 1, fs: 17 }],
+  [676, 168, 108, 24, 'bbox', '10.0', { demo: 1, fs: 17 }],
+  [676, 208, 108, 24, 'bbox', '2.0', { demo: 1, fs: 17 }],
+]);
+</script></body></html>

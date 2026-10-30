@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>state</title>
+<link rel="stylesheet" href="common.css">
+<style>html,body{background:transparent} #scr{width:auto;height:auto}</style></head>
+<body><div id="scr"></div>
+<script src="common.js"></script>
+<script>
+// 狀態圖：背景圖畫的是「正常／OFF」外觀，這裡的每一張是另一個狀態，
+// 在 GP-Pro EX 用 Image Placement 疊在同一座標，再用 Animation 依位元/字元顯示。
+// 項目：id → [w, h, 種類, 文字, 選項, 底色（給文字型項目用）]
+const S = {
+  // 手動頁（ON 狀態）
+  man_mode_on:  [144, 32, 'lamp', '手動模式', { bg: 'AM', fg: 'TX', fs: 17 }],
+  man_sim_on:   [144, 32, 'lamp', '模擬 ON', { bg: 'AM', fg: 'TX', fs: 17 }],
+  man_ready_on: [144, 32, 'lamp', 'READY', { bg: 'G1', fs: 17 }],
+  man_home_on:  [144, 32, 'lamp', '原點', { bg: 'G1', fs: 17 }],
+  man_cycle_on: [144, 32, 'lamp', '循環中', { bg: 'G1', fs: 17 }],
+  // 自動頁頁首
+  a_local:      [90, 29, 'lamp', 'Local', { bg: 'GY', fg: 'TX', fs: 16 }],
+  a_comm_ng:    [90, 29, 'lamp', '通訊中斷', { bg: 'R1', fs: 16 }],
+  // 結果框
+  a_res_ng:     [360, 37, 'lamp', 'NG', { bg: 'R1', fs: 24 }],
+  a_res_ok:     [360, 37, 'lamp', 'OK', { bg: 'G1', fs: 24 }],
+  // 狀態大字 D2050（1 待機中畫在背景）
+  a_st0:        [180, 38, 'lamp', '停止', { bg: 'GD', fs: 22 }],
+  a_st2:        [180, 38, 'lamp', '加工中', { bg: 'BL', fs: 22 }],
+  a_st3:        [180, 38, 'lamp', '等待中控', { bg: 'AM', fg: 'TX', fs: 22 }],
+  a_st4:        [180, 38, 'lamp', '異常', { bg: 'R1', fs: 22 }],
+  a_st5:        [180, 38, 'lamp', '手動', { bg: 'SL', fs: 22 }],
+  // interlock 異常（紅）
+  a_jig_ng:     [180, 28, 'lamp', '治具未夾', { bg: 'R2', fs: 16 }],
+  a_stopreq:    [180, 28, 'lamp', '治具停止要求', { bg: 'R2', fs: 16 }],
+  a_esd_ng:     [180, 28, 'lamp', '靜電異常', { bg: 'R2', fs: 16 }],
+  a_rdy_ng:     [88, 28, 'lamp', '未READY', { bg: 'R2', fs: 13 }],
+  a_home_ng:    [88, 28, 'lamp', '不在原點', { bg: 'R2', fs: 16 }],
+  a_estop:      [180, 28, 'lamp', '緊急停止', { bg: 'R2', fs: 16 }],
+  // TABLE 選中
+  a_tbl1:       [100, 46, 'btn', 'TABLE 1', { bg: 'YL', fg: 'TX', fs: 16 }],
+  a_tbl2:       [100, 46, 'btn', 'TABLE 2', { bg: 'YL', fg: 'TX', fs: 16 }],
+  a_tbl3:       [100, 46, 'btn', 'TABLE 3', { bg: 'YL', fg: 'TX', fs: 16 }],
+  // 模式／模擬文字（TABLE 面板底 PN2）
+  a_mode_auto:  [60, 18, 'text', '自動', { bg: 'PN2', fs: 15 }],
+  a_mode_man:   [60, 18, 'text', '手動', { bg: 'PN2', fg: 'R1', fs: 15 }],
+  a_sim_off:    [60, 18, 'text', 'OFF', { bg: 'PN2', fs: 15 }],
+  a_sim_on:     [60, 18, 'text', 'ON', { bg: 'PN2', fg: 'R1', fs: 15 }],
+  // 中控頁（ON＝亮綠）
+  h_remote:     [83, 27, 'lamp', 'Remote', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_pass:       [83, 27, 'lamp', '放行', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_ackst:      [83, 27, 'lamp', 'ACK開始', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_ackend:     [83, 27, 'lamp', 'ACK完工', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_comm_ng:    [169, 31, 'lamp', '通訊中斷', { bg: 'R1', fs: 17 }],
+  h_esd_on:     [69, 23, 'btn', '檢查', { bg: 'G1', fs: 14 }],
+  h_run1:       [87, 21, 'text', '1 運行中', { bg: 'WH', fs: 15, pad: '0 4px' }],
+  h_run2:       [87, 21, 'text', '2 異常', { bg: 'WH', fg: 'R1', fs: 15, pad: '0 4px' }],
+  h_run0:       [87, 21, 'text', '0 停止', { bg: 'WH', fs: 15, pad: '0 4px' }],
+  h_b01: [88, 24, 'lamp', 'B01 開始', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_b02: [88, 24, 'lamp', 'B02 完工', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_b03: [88, 24, 'lamp', 'B03 異常', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_b04: [92, 24, 'lamp', 'B04 靜電OK', { bg: 'G2', fg: 'TX', fs: 14 }],
+  h_b05: [88, 24, 'lamp', 'B05 靜電NG', { bg: 'G2', fg: 'TX', fs: 14 }],
+  h_b08: [88, 24, 'lamp', 'B08 Remote', { bg: 'G2', fg: 'TX', fs: 14 }],
+  h_b09: [88, 24, 'lamp', 'B09 Ready資料', { bg: 'G2', fg: 'TX', fs: 12 }],
+  h_b10: [92, 24, 'lamp', 'B10 OK', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_b13: [88, 24, 'lamp', 'B13 Alarm', { bg: 'G2', fg: 'TX', fs: 14 }],
+  h_b14: [88, 24, 'lamp', 'B14 Ready', { bg: 'G2', fg: 'TX', fs: 14 }],
+  h_b15: [88, 24, 'lamp', 'B15 Run', { bg: 'G2', fg: 'TX', fs: 15 }],
+  h_lowfirst:   [108, 26, 'btn', '低位元組先', { bg: 'BR', fs: 15 }],
+};
+const id = location.search.slice(1);
+const [w, h, kind, text, o] = S[id];
+document.getElementById('scr').style.cssText = `width:${w}px;height:${h}px`;
+render([[0, 0, w, h, kind, text, o]]);
+document.querySelector('.frame').remove();
+window.STATE_IDS = Object.keys(S);
+</script></body></html>
