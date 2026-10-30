@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>MC-D002 鎖螺絲站 PLC v3.1 現場上線測試 SOP</title>
+<style>
+@page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+* { box-sizing: border-box; }
+body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10pt; line-height: 1.42; color: #1a1a1a; margin: 0; }
+h1 { font-size: 22pt; margin: 0 0 6px; }
+h2 { font-size: 15pt; margin: 18px 0 8px; padding: 5px 10px; background: #1f3a5f; color: #fff; border-radius: 3px; page-break-after: avoid; }
+h3 { font-size: 12pt; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 2px solid #1f3a5f; page-break-after: avoid; }
+p { margin: 4px 0; }
+ul, ol { margin: 4px 0 4px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; page-break-inside: auto; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #888; padding: 3px 5px; vertical-align: top; text-align: left; }
+th { background: #dde5ef; font-weight: bold; }
+td.no { width: 7%; font-weight: bold; text-align: center; white-space: nowrap; }
+td.ck { width: 9%; white-space: nowrap; font-size: 10pt; }
+td.rec { width: 22%; color: #333; }
+.steps th:nth-child(2), .steps td:nth-child(2) { width: 33%; }
+.steps th:nth-child(3), .steps td:nth-child(3) { width: 29%; }
+.box { border-radius: 4px; padding: 8px 10px; margin: 8px 0; page-break-inside: avoid; }
+.danger { border: 2px solid #c0392b; background: #fdecea; }
+.danger b.t { color: #c0392b; }
+.warn { border: 2px solid #d68910; background: #fef5e7; }
+.info { border: 1px solid #2e6da4; background: #eaf2fb; }
+.hold { border: 3px double #1f3a5f; background: #f4f6f9; padding: 8px 10px; margin: 10px 0 16px; page-break-inside: avoid; }
+.hold .t { font-weight: bold; font-size: 11.5pt; color: #1f3a5f; }
+.sign { display: inline-block; min-width: 150px; border-bottom: 1px solid #333; height: 18px; margin: 0 6px; }
+.tbc { color: #b03a2e; font-weight: bold; }
+.small { font-size: 9pt; color: #444; }
+.cover { height: 260mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+.cover .top { border-left: 10px solid #1f3a5f; padding-left: 14px; margin-top: 30mm; }
+.cover .sub { font-size: 14pt; color: #333; margin-top: 6px; }
+.pb { page-break-before: always; }
+img.hmi { width: 78%; display: block; margin: 4px auto; border: 1px solid #555; }
+.blank td { height: 22px; }
+.flow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 6px 0 10px; }
+.flow span { border: 1px solid #1f3a5f; border-radius: 3px; padding: 3px 7px; background: #eef3f8; font-size: 9.5pt; }
+.flow i { font-style: normal; color: #1f3a5f; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 封面 ===================== -->
+<div class="cover">
+  <div class="top">
+    <h1>MC-D002 鎖螺絲站<br>PLC v3.1 POC 現場上線測試 SOP</h1>
+    <div class="sub">先確認安全與原點（Home），再一動一動測試，最後連中控與連續生產</div>
+    <div class="sub">給第一次接觸本機的測試人員使用</div>
+  </div>
+  <table style="width:75%">
+    <tr><th style="width:35%">機台</th><td>日東精工 FM513VZ-01-NX-100（S/N U17984），RC75-T1 控制器、NX020T2-07 起子</td></tr>
+    <tr><th>主控 PLC</th><td>三菱 FX5S，程式 v3.1（專案檔 ScrewMachine_v3_1.gx3）</td></tr>
+    <tr><th>HMI 畫面</th><td>自動頁面、中控通訊監視（v3）、手動頁面</td></tr>
+    <tr><th>文件版本</th><td>SOP v1.0　2026-10-30</td></tr>
+    <tr><th>測試日期</th><td>　　　年　　月　　日</td></tr>
+    <tr><th>測試員</th><td></td></tr>
+    <tr><th>負責工程師</th><td></td></tr>
+  </table>
+  <div class="box danger"><b class="t">本手冊不取代原廠安全說明。</b>日東精工 FM513VZ／RC75 與治具廠商的安全規定優先。手冊中標示 <span class="tbc">【待確認】</span> 的地方，必須在測試前由負責工程師確認並寫上答案。</div>
+</div>
+
+<!-- ===================== 0 如何使用 ===================== -->
+<h2>0. 先看這一頁：怎麼使用本手冊</h2>
+<p>本手冊把測試分成 9 個階段（A～I）。<b>一定要照順序做，不可以跳。</b>每個階段最後有一個「關卡」，要負責工程師簽名，才能進入下一階段。</p>
+<div class="flow">
+<span>A 斷電目視</span><i>→</i><span>B 送電與急停</span><i>→</i><span>C 訊號點檢</span><i>→</i><span>D 原點／安全點</span><i>→</i><span>E 手動單動</span><i>→</i><span>F 自動 Local</span><i>→</i><span>G 異常與連鎖</span><i>→</i><span>H 中控 Remote</span><i>→</i><span>I 連續生產資料</span>
+</div>
+<h3>每一個步驟的格式</h3>
+<table class="steps">
+<tr><th>編號</th><th>做法（你要做的事）</th><th>應該看到（正確結果）</th><th>記錄（寫下實際看到的）</th><th>結果</th></tr>
+<tr><td class="no">D2</td><td>在 HMI 按「復歸」一次</td><td>紅燈熄滅、黃燈亮</td><td class="rec">實際：＿＿＿＿＿＿　照片＃＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<ol>
+<li><b>一次只做一步。</b>做完看結果，和「應該看到」一樣才打勾 ☐OK，再往下一步。</li>
+<li><b>結果不一樣就停。</b>勾 ☐NG，寫下實際看到什麼，叫工程師。<b>不要自己重試、不要自己修。</b></li>
+<li><b>每一步都要寫記錄。</b>沒有數字的寫「有／沒有」「亮／不亮」。可以拍照的就拍照，照片編號寫在記錄欄。</li>
+<li>看不懂的字，翻到 <b>附錄 A 名詞小辭典</b>。</li>
+</ol>
+
+<h3>每次按「會讓機器動」的按鈕之前，大聲說：</h3>
+<div class="box warn" style="font-size:13pt; text-align:center;"><b>「手離開！人離開！要動了！」</b>　→　看一眼危險區沒人　→　工程師回答「OK」　→　才按</div>
+
+<!-- ===================== 1 安全規則 ===================== -->
+<h2 class="pb">1. 安全規則（開始前必讀，讀完簽名）</h2>
+<div class="box danger">
+<b class="t">危險區＝會動、會夾、會轉的地方：</b>
+<ul>
+<li>起子（Z 軸）下方：起子會往下伸約 100 mm 並高速旋轉（最高 840 rpm）。</li>
+<li>治具：夾電路板、夾導光條的氣缸，以及左右移動的滑台。</li>
+<li>送料器（螺絲供給機）出口與送料管。</li>
+</ul>
+<b>機台有電、有氣的時候，手、頭髮、工具都不可以進入危險區。</b>
+</div>
+<h3>1.1 一定要遵守</h3>
+<ol>
+<li><b>兩人制：</b>測試員＋負責工程師全程在場。測試員不可以單獨上機。</li>
+<li><b>急停手：</b>任何會動的步驟，工程師的手要放在急停按鈕旁邊。測試員負責按 HMI、看、記錄。</li>
+<li><b>服裝：</b>戴護目鏡、靜電手環；長髮綁好；不戴手套靠近旋轉的起子（會被捲入）；不戴項鍊、手環以外的飾品。</li>
+<li><b>放／取工件：</b>只能在「停止中」且 Z 軸在原點不動時做。方法依治具設計 <span class="tbc">【待確認：放取工件時要不要先按急停】</span>。</li>
+<li><b>不可以碰：</b>電腦上的 GX Works3、參數、配線、感測器。不可以用膠帶或物品擋住感測器。</li>
+<li><b>不可以按：</b>本手冊沒有寫到的按鈕（例如「警報參數」頁的設定、「清零」，除非步驟要求）。</li>
+</ol>
+<h3>1.2 立刻停止的情況（拍急停）</h3>
+<table>
+<tr><th style="width:50%">看到／聽到／聞到</th><th>處理</th></tr>
+<tr><td>異常聲音、撞擊聲、起子空轉不停</td><td rowspan="5"><b>① 拍急停　② 手離開、人後退　③ 叫工程師　④ 記錄：時間、步驟編號、HMI 畫面拍照</b><br><br>不要按復歸、不要重試，等工程師判斷。</td></tr>
+<tr><td>冒煙、焦味</td></tr>
+<tr><td>動作方向不對、動作不停、動作和步驟寫的不一樣</td></tr>
+<tr><td>HMI 出現紅色異常，而且你不知道為什麼</td></tr>
+<tr><td>任何你不確定、覺得怪怪的事</td></tr>
+</table>
+<div class="box info"><b>急停按鈕在哪裡：</b>主控盤＿＿＿＿＿＿＿　治具＿＿＿＿＿＿＿　RC75＿＿＿＿＿＿＿ <span class="tbc">【待確認：每個急停是否都會停 PLC、RC75 起子、治具】</span><br>
+<b>測試員確認：</b>我已經親手摸到每一個急停按鈕　☐</div>
+<h3>1.3 簽名</h3>
+<p>我已經讀完並了解上面的安全規則。</p>
+<p>測試員<span class="sign"></span>　負責工程師<span class="sign"></span>　日期<span class="sign" style="min-width:90px"></span></p>
+
+<!-- ===================== 2 角色與準備 ===================== -->
+<h2 class="pb">2. 角色分工與準備物品</h2>
+<table>
+<tr><th style="width:18%">角色</th><th>負責</th></tr>
+<tr><td>負責工程師</td><td>確認 PLC 程式版本並寫入實機 PLC、送電／斷電、上鎖掛牌、確認【待確認】事項、急停手、判斷異常、每個關卡簽名。<b>只有工程師可以操作 GX Works3。</b></td></tr>
+<tr><td>測試員</td><td>照步驟按 HMI、觀察、計時、拍照、填表。發現不對就喊停。</td></tr>
+<tr><td>中控人員（H 階段）</td><td>操作中控系統（car_light_system）：掃碼、工單、工號、放行、對照中控收到的資料。</td></tr>
+</table>
+<h3>2.1 準備物品（打勾）</h3>
+<table>
+<tr><td>☐ 本手冊（列印）、原子筆</td><td>☐ 手機（拍照、錄影、碼錶）</td><td>☐ 護目鏡、靜電手環</td></tr>
+<tr><td>☐ 測試用廢板 ≥ 15 片</td><td>☐ 正式工件 ≥ 30 片（I 階段）</td><td>☐ 螺絲（φ3×12 盤頭自攻，十字 No.2）</td></tr>
+<tr><td>☐ 直尺或游標卡尺（量間隙）</td><td>☐ 扭力計（有的話）</td><td>☐ 「測試中」警示牌、上鎖用具</td></tr>
+</table>
+<h3>2.2 機台規格（對照用）</h3>
+<table>
+<tr><th style="width:25%">項目</th><th>規格（日東精工規格書）</th><th style="width:28%">現場實際（填寫）</th></tr>
+<tr><td>電源</td><td>AC200V 60Hz 單相，NPN</td><td></td></tr>
+<tr><td>氣源</td><td>0.4 MPa，接頭 φ8</td><td>＿＿＿ MPa</td></tr>
+<tr><td>螺絲</td><td>自攻，盤頭，φ3 mm × 12 mm，頭徑 ≤ φ5.5，十字 No.2</td><td></td></tr>
+<tr><td>目標</td><td>3 秒／點，扭力 0.6（0.5～0.7）N·m</td><td></td></tr>
+<tr><td>起子</td><td>NX020T2-07，輸出扭力 0.5～2.0 N·m，最高 840 rpm</td><td></td></tr>
+<tr><td>行程</td><td>螺絲導引行程 100 mm</td><td></td></tr>
+</table>
+<h3>2.3 工程師開始前要確認並填寫（附錄 D 有完整清單）</h3>
+<p>附錄 D 的【待確認】事項沒有填完，<b>不可以開始 D 階段以後的測試</b>。</p>
+
+<!-- ===================== 3 HMI 導覽 ===================== -->
+<h2 class="pb">3. HMI 畫面導覽</h2>
+<p class="small">下面是設計畫面，數字是範例，不是現場實際值。紅色小字是給工程師看的 PLC 位址，測試員可以忽略。</p>
+<h3>3.1 自動頁面</h3>
+<img class="hmi" src="../HMI/HMI_自動頁面_v3.png">
+<table>
+<tr><th style="width:24%">區域</th><th>看什麼</th></tr>
+<tr><td>右上「Remote」</td><td>綠色＝連中控模式（Remote）；灰色＝單機模式（Local）。</td></tr>
+<tr><td>右上「中控連線」</td><td>綠＝中控正常；<b>紅色閃爍＝中控通訊中斷</b>（中控還沒接的時候是正常的）。</td></tr>
+<tr><td>中間大方塊（狀態）</td><td>停止／待機中／加工中／等待中控／異常／手動。</td></tr>
+<tr><td>治具夾好、治具停止要求</td><td>綠＝有訊號；治具停止要求亮紅＝治具要求停機。</td></tr>
+<tr><td>RC75 READY、原點</td><td><b>兩個都要綠色</b>，起子才可以動作。原點＝起子在最上面的安全位置。</td></tr>
+<tr><td>數量狀態</td><td>良品、不良品、總數、良率。「清零」只有停止中有效（測試中不要按，除非步驟要求）。</td></tr>
+<tr><td>黃色警告橫幅</td><td>顯示目前的警告或異常文字。<b>請照抄到記錄欄。</b></td></tr>
+<tr><td>按鈕列</td><td>啟動、停止（鎖完這顆才停）、復歸、蜂鳴器靜音、Remote/Local 切換（停止中才有效）、中控監視、警報參數。</td></tr>
+<tr><td>螺絲 TABLE</td><td>選 RC75 的鎖付程式 1／2／3，黃色＝選中。只有停止中可以改。</td></tr>
+<tr><td>右下</td><td>模式（自動／手動）、<b>步序</b>（見附錄 B）、<b>模擬：一定要是 OFF</b>。</td></tr>
+</table>
+<div class="box danger"><b class="t">模擬：ON</b> 時 PLC 會關閉所有實體輸出，機台看起來「不動」，但測試結果完全無效。看到模擬 ON 立刻告訴工程師。</div>
+
+<h3>3.2 中控通訊監視頁（按「中控監視」進入）</h3>
+<img class="hmi" src="../HMI/HMI_中控監視_v3.png">
+<table>
+<tr><th style="width:24%">區域</th><th>看什麼</th></tr>
+<tr><td>中控心跳／PLC 心跳</td><td>兩個數字一樣，而且<b>大約每秒加 1</b>。不動＝中控沒在送。</td></tr>
+<tr><td>心跳無變化</td><td>正常時接近 0；到 5.0 秒就判定斷線。</td></tr>
+<tr><td>Remote、放行、ACK開始、ACK完工</td><td>中控送過來的訊號，綠＝ON。</td></tr>
+<tr><td>中控下發時間、校時次數</td><td>中控給的時間；PLC 時鐘被校正一次，校時次數加 1。</td></tr>
+<tr><td>參數（停電保持）</td><td>中控回應逾時（v3.1 預設 30.0 秒）、心跳逾時 5.0 秒、靜電檢查（不檢查／檢查）。<b>測試員不要改。</b></td></tr>
+<tr><td>右邊 PLC → 中控</td><td>運作狀態、版號（v3.1 應顯示 3.01）、狀態位元、開始／結束時間、Cycle Time。</td></tr>
+</table>
+
+<h3>3.3 手動頁面（按自動頁右上「手動頁面」進入）</h3>
+<p>本手冊沒有手動頁面的截圖。依 PLC 程式，手動頁面應該有下列按鈕，<span class="tbc">【待確認：實際按鈕文字，請工程師在右欄寫上】</span>。</p>
+<table>
+<tr><th style="width:28%">功能</th><th>按下去會怎樣</th><th style="width:26%">HMI 上的按鈕文字</th></tr>
+<tr><td>自動／手動切換</td><td>停止中按一下切換。手動時右下顯示「手動」。</td><td></td></tr>
+<tr><td>RC75 RESET（異常重置）</td><td>按住時送出 RESET，清除 RC75 異常。<b>起子不會移動。</b></td><td></td></tr>
+<tr><td>RC75 RETURN（回原點）</td><td>按住時送出 RETURN，起子回到原點（往上）。</td><td></td></tr>
+<tr><td>送螺絲</td><td>按住時送出送螺絲訊號。</td><td></td></tr>
+<tr><td>單次鎖付</td><td><b>按一下＝鎖一顆</b>（按住也只鎖一顆）。起子會下降、旋轉、再上升。</td><td></td></tr>
+<tr><td>機台待機（給治具）</td><td>按住時送「機台待機」給治具。</td><td></td></tr>
+<tr><td>機台停止（給治具）</td><td>按住時送「機台停止」給治具。</td><td></td></tr>
+</table>
+
+<!-- ===================== A ===================== -->
+<h2 class="pb">階段 A　斷電目視檢查（機台不通電、不通氣）</h2>
+<div class="box info">目的：在沒有任何危險的狀態下，先認識機台、找到急停、拍照留底。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">A1</td><td>請工程師確認主電源開關 OFF、氣源關閉，並掛上「測試中」牌、上鎖。</td><td>主電源 OFF、氣壓表 0、牌子已掛。</td><td class="rec">上鎖人：＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A2</td><td>記錄銘牌：機型、序號（起子機、RC75、治具、主控 PLC）。</td><td>機型 FM513VZ-01-NX-100，S/N U17984。</td><td class="rec">照片＃＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A3</td><td>拍照：整機正面、側面、控制箱內部、RC75 控制器、治具、HMI、送料器。</td><td>每張照片清楚。</td><td class="rec">照片＃＿＿～＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A4</td><td>看危險區（起子下方、治具、送料器）：有沒有工具、螺絲、廢料、膠帶。</td><td>沒有任何異物。</td><td class="rec">發現：＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A5</td><td>找出每一個急停按鈕，貼上標籤，拍照。填到第 1.2 節。</td><td>知道每個急停的位置。</td><td class="rec">數量：＿＿ 個</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A6</td><td>看氣管 φ8 有沒有接好、有沒有破損或壓扁。</td><td>接好、無破損。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">A7</td><td>用手機量：起子頭最下端到治具上工件表面的距離（斷電時起子應在原點）。</td><td>有足夠空間放工件。</td><td class="rec">＿＿＿ mm</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 A（工程師確認）</span><br>
+☐ 急停 X0 為常閉（NC）接線　☐ RC75 EX2 外部 I/O 線依 IO 表接好　☐ 治具 VB1 的 R1/R2 接到 PLC X5/X6　☐ PLC Y0/Y1 接到治具 VB1 X0/X1　☐ 靜電 X20/X21（有／沒有接：＿＿）<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== B ===================== -->
+<h2 class="pb">階段 B　送電與急停（只通電，不讓機構動作）</h2>
+<div class="box warn">本階段<b>不按「復歸」、不按「啟動」</b>。急停放開後紅燈會一直亮，這是正常的（異常要按復歸才會清除，復歸在 D 階段才做）。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">B1</td><td><b>工程師</b>：確認 PLC 程式是 v3.1（ScrewMachine_v3_1.gx3），寫入實機 PLC，確認 HMI 專案版本。</td><td>寫入完成、無錯誤。</td><td class="rec">PLC 版本：＿＿　HMI 版本：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B2</td><td>先把主控盤急停<b>按下去</b>。工程師依順序送電 <span class="tbc">【待確認送電順序：主電源 → DC24V → PLC → RC75 → 治具】</span>。</td><td>HMI 開機，出現自動頁面。</td><td class="rec">開機花＿＿秒</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B3</td><td>看 HMI 右下。</td><td><b>模擬：OFF</b>、模式：自動、步序：0。</td><td class="rec">模擬：＿＿ 模式：＿＿ 步序：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B4</td><td>看塔燈、HMI 狀態、警告橫幅（急停還按著）。</td><td>塔燈紅、蜂鳴器響、狀態「異常」、橫幅顯示緊急停止。</td><td class="rec">橫幅文字：＿＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B5</td><td>按 HMI「蜂鳴器靜音」。</td><td>蜂鳴器停，紅燈仍亮。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B6</td><td>看右上「中控連線」。</td><td>中控還沒接：紅色閃爍（正常）。</td><td class="rec">顏色：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B7</td><td>工程師打開氣源，看氣壓表。</td><td>約 0.4 MPa；沒有漏氣聲；<b>沒有任何機構動作</b>。</td><td class="rec">＿＿＿ MPa</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B8</td><td>把急停<b>旋轉拉起（放開）</b>。<b>不要按復歸。</b></td><td>機構不動；紅燈仍亮（異常保持）。</td><td class="rec">有沒有任何東西動：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">B9</td><td>在停止中按「Remote/Local 切換」，切到 Local。</td><td>右上 Remote 變灰（Local）。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 B（工程師確認）</span>　☐ 送電後沒有任何機構自己動　☐ 急停能讓 HMI 顯示異常　☐ 模擬 OFF<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== C ===================== -->
+<h2 class="pb">階段 C　輸入訊號點檢（紅燈保持中，機台不可能啟動）</h2>
+<div class="box info">因為 B 階段沒有按復歸，PLC 還在「異常保持」狀態，<b>按啟動也不會開始</b>，所以可以安全地檢查按鈕和感測器。工程師在電腦上用 GX Works3「監看」（只看不改）確認 X 點，測試員按按鈕並記錄。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">C1</td><td>按住實體「啟動」按鈕 2 秒再放開。</td><td>工程師看到 X1 ON→OFF；機台不動。</td><td class="rec">X1：☐ 有 ☐ 沒有</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">C2</td><td>按住實體「停止」按鈕 2 秒再放開。</td><td>X3 ON→OFF。</td><td class="rec">X3：☐ 有 ☐ 沒有</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">C3</td><td>按下急停，再放開。</td><td>X0：按下 OFF、放開 ON（常閉）。</td><td class="rec">X0：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">C4</td><td>看 HMI「RC75 READY」「原點」燈。</td><td>RC75 開機完成後 READY 綠；原點依 RC75 狀態（綠或灰都記下）。</td><td class="rec">READY：＿＿ 原點：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">C5</td><td>看 HMI「治具夾好」「治具停止要求」。</td><td>治具沒動作時兩個都不亮。</td><td class="rec">夾好：＿＿ 停止要求：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">C6</td><td>（有接靜電才做）戴上／拿下靜電手環。</td><td>工程師看到 X20（OK）／X21（NG）跟著變化；HMI 靜電方塊變化。</td><td class="rec">X20：＿＿ X21：＿＿</td><td class="ck">☐ OK<br>☐ NG<br>☐ 不適用</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 C（工程師確認）</span>　☐ 所有輸入方向正確　☐ 沒有短路或常亮的感測器<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== D ===================== -->
+<h2 class="pb">階段 D　原點／安全點（Home）測試　★最重要</h2>
+<div class="box danger"><b class="t">目的：</b>確認起子和治具都能回到「原點＝安全點」，原點訊號正確，而且原點位置不會撞到工件或手。<b>D 階段沒有通過，絕對不可以做 E 以後的任何動作。</b><br>
+本階段開始有<b>機構動作</b>。每次按按鈕前都要喊「手離開！人離開！要動了！」，工程師手放在急停旁。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">D0</td><td>再看一次危險區：沒有人、手、工具、工件。</td><td>淨空。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D1</td><td>RC75 自己回原點（依日東精工流程）<span class="tbc">【待確認：RC75 上電後會自動回原點，還是要用 RC75 面板／教導盒操作】</span>。</td><td>起子（Z 軸）往上移到最高點後停住；HMI「原點」「RC75 READY」都變綠。</td><td class="rec">花＿＿秒　原點：＿＿ READY：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D2</td><td>喊口令後，在 HMI 按<b>「復歸」一次</b>。</td><td>PLC 送 RESET 約 0.5 秒；起子已在原點時<b>不會移動</b>；紅燈熄、黃燈亮；狀態「停止」；橫幅清空。</td><td class="rec">起子有沒有動：＿＿　燈：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D3</td><td>再按「復歸」2 次（每次間隔 5 秒），每次都記錄。</td><td>每次都一樣：不動作、不出異常。</td><td class="rec">第 2 次：＿＿ 第 3 次：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D4</td><td>量起子頭在原點時到工件面的距離；拍照。</td><td>和 A7 一樣；放工件時手不會碰到起子。</td><td class="rec">＿＿＿ mm　照片＃＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D5</td><td>治具回原點（依治具流程）<span class="tbc">【待確認：治具上電後怎麼回原點、原點在哪裡】</span>。</td><td>滑台回到原點、夾爪打開；HMI「治具夾好」不亮。</td><td class="rec">花＿＿秒　照片＃＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D6</td><td>不按任何鈕，觀察 30 秒。</td><td>所有機構保持不動；塔燈黃（停止中）。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">D7</td><td>按急停 → 放開 → 按「復歸」。</td><td>按急停：紅燈；復歸後：回到黃燈；起子不動。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="box warn"><b>如果按「復歸」時起子不在原點：</b>PLC 會送 RETURN 讓起子往上回原點，最多 10 秒。超過 10 秒還沒到原點會出現「原點復歸逾時」異常 → 拍急停、叫工程師（可能是原點感測器或 RC75 設定問題）。</div>
+<div class="hold"><span class="t">關卡 D（工程師確認）</span>　☐ 起子原點在最上方、訊號正確　☐ 治具原點正確　☐ 原點時有足夠空間放取工件　☐ 復歸 3 次結果一致<br>
+<b>原點／安全點的定義（工程師寫）：</b>＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== E ===================== -->
+<h2 class="pb">階段 E　手動單動（一次一個動作）</h2>
+<div class="box danger"><b class="t">規則：</b>一個按鈕＝一個動作。做完一個，確認起子回原點、機台停穩，才做下一個。每一個都要喊口令。<br>E1～E5 不放工件；E6 開始用<b>廢板</b>，不用正式工件。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">E0</td><td>停止中，進「手動頁面」，按「自動／手動切換」一次。</td><td>右下模式顯示「手動」；狀態「手動」。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E1</td><td>按住「RC75 RESET」1 秒再放開。</td><td>起子<b>不動</b>；RC75 沒有異常。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E2</td><td>按住「RC75 RETURN」直到「原點」綠燈亮再放開（已在原點則按 1 秒）。</td><td>起子已在原點：不動；不在原點：往上回原點。</td><td class="rec">有沒有動：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E3</td><td>工程師說明本產品要用的 TABLE <span class="tbc">【待確認：TABLE 1／2／3 各對應哪個產品】</span>。停止中在自動頁面選該 TABLE。</td><td>選中的 TABLE 變黃；RC75 收到對應程式。</td><td class="rec">TABLE＝＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E4</td><td>喊口令，按一下「送螺絲」。</td><td>送料器送一顆螺絲到起子頭並吸住。<b>如果連續送很多顆，立刻拍急停。</b></td><td class="rec">送了＿＿顆　吸住：＿＿</td><td class="ck">☐ OK<br>☐ NG<br>☐ 不適用</td></tr>
+<tr><td class="no">E5</td><td>按住「機台待機」2 秒、再按住「機台停止」2 秒，觀察治具。</td><td>治具收到訊號的反應 <span class="tbc">【待確認：治具收到待機／停止會做什麼】</span>。記下實際反應。</td><td class="rec">待機：＿＿＿ 停止：＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E6</td><td>按急停 → 在治具放<b>廢板</b>並夾好（依治具流程）→ 手離開 → 放開急停 → 按「復歸」→ 確認還在手動模式。</td><td>廢板夾好；起子在原點；無異常。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E7</td><td>喊口令，按<b>一下</b>「單次鎖付」，同時用碼錶計時。</td><td>起子下降 → 旋轉鎖付 → 上升回原點；只鎖一顆；回原點後停。</td><td class="rec">時間＿＿秒　鎖平：☐是 ☐否　照片＃＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E8</td><td>按住「單次鎖付」不放 5 秒。</td><td><b>只會鎖一顆</b>，不會連續鎖（v2 測試後修正的功能）。</td><td class="rec">鎖了＿＿顆</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E9</td><td>換位置／換廢板，重複 E7 兩次。</td><td>每次結果一樣。</td><td class="rec">第 2 次＿＿秒　第 3 次＿＿秒</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E10</td><td>檢查鎖好的螺絲：有沒有浮起、歪斜、滑牙；有扭力計就量。</td><td>螺絲鎖平、無損傷。</td><td class="rec">扭力：＿＿ N·m</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">E11</td><td>停止中按「自動／手動切換」，回到自動。</td><td>模式「自動」。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 E（工程師確認）</span>　☐ 每個單動方向與動作正確　☐ 單次鎖付只鎖一顆　☐ 鎖付品質可接受<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== F ===================== -->
+<h2 class="pb">階段 F　自動模式 Local（不連中控，用廢板）</h2>
+<div class="box info">Local＝機台自己判斷，不問中控。流程：待機（步序 10）→ 治具夾好 → 選表 20 → 起動 30 → 鎖付中 40 → 判定 50 → 分流 56 → 回原點 60 → 待機 10。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">F0</td><td>確認：自動模式、Local（右上灰色）、靜電檢查＝不檢查（沒接靜電時）、模擬 OFF。</td><td>都正確。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F1</td><td>記下目前良品／不良品／總數。喊口令，按「啟動」。</td><td>塔燈綠；狀態「待機中」；步序 10。<b>起子不動</b>（還沒有工件）。</td><td class="rec">良＿＿ 不良＿＿ 總＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F2</td><td>依治具流程放廢板、夾好，手離開。</td><td>「治具夾好」綠 → 約 0.5 秒後自動開始鎖付 → 回原點 → 狀態回「待機中」。</td><td class="rec">HMI Cycle Time＿＿秒　碼錶＿＿秒</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F3</td><td>看結果。</td><td>OK（綠）；良品 +1、總數 +1；結束時間更新。</td><td class="rec">良＿＿ 總＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F4</td><td>依治具流程取件。再做 4 片（共 5 片），填附錄 C 的「連續生產記錄表」。</td><td>每片都 OK，Cycle Time 接近。</td><td class="rec">見附錄 C</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F5</td><td>放第 6 片，在<b>鎖付中</b>（狀態加工中）按「停止」。</td><td>這一顆<b>鎖完、回原點</b>才停；塔燈綠→黃；狀態「停止」。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">F6</td><td>取件，按「啟動」，再做 1 片。</td><td>正常完成。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 F（工程師確認）</span>　☐ 自動流程正確　☐ 停止按鈕會等鎖完才停　☐ 計數正確<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== G ===================== -->
+<h2 class="pb">階段 G　異常與安全連鎖（用廢板，一次一項）</h2>
+<div class="box danger"><b class="t">每做完一項，都要：</b>確認起子在原點、取出廢板、按「復歸」、確認回到黃燈，才做下一項。G2 是急停測試，工程師要在旁邊準備斷電。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">G1</td><td>自動待機中（沒有工件）拍急停。</td><td>立即紅燈、蜂鳴器；狀態「異常」；「機台停止」送給治具。放開急停＋復歸後恢復。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G2</td><td>自動鎖付中（起子正在下降或旋轉）拍急停。</td><td><b>起子立刻停止</b> <span class="tbc">【待確認：急停是否硬線切斷 RC75／起子】</span>。<b>如果起子繼續往下或繼續轉，記下來，停止所有測試。</b></td><td class="rec">起子反應：＿＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G3</td><td>G2 後：放開急停 → 按復歸。</td><td>起子回原點（最多 10 秒）；黃燈。不良品／總數有沒有變化要記下。</td><td class="rec">回原點＿＿秒　計數：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G4</td><td>自動運轉中，在治具按「治具停止」。</td><td>異常停機（治具停止要求），紅燈。</td><td class="rec">橫幅：＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G5</td><td>做一顆 NG（方法由工程師決定 <span class="tbc">【待確認 NG 製造方法】</span>）。</td><td>結果 NG（紅）；不良品 +1；機台停機（鎖付 NG）；紅燈。</td><td class="rec">不良＿＿ 橫幅：＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G6</td><td>G5 後：<b>先取出 NG 件</b>，再按復歸、啟動。</td><td>治具要先放開才會接受下一件。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">G7</td><td>（可選）螺絲送料器放空。</td><td>黃色警告「螺絲不足」閃爍；機台<b>不停機</b>。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG<br>☐ 不做</td></tr>
+<tr><td class="no">G8</td><td>記下目前計數與 TABLE。工程師斷電 1 分鐘再送電，然後重做 D2 復歸。</td><td>良品、不良品、總數、TABLE、參數都<b>保留</b>（停電保持）；上電後模式自動、停止。<b>上電後會回到 Remote</b>，中控沒接時要再按一次切回 Local。</td><td class="rec">斷電前＿＿／送電後＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 G（工程師確認）</span>　☐ 急停在任何時候都有效　☐ 異常會停機且需要復歸　☐ 停電保持正確<br>
+工程師簽名<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== H ===================== -->
+<h2 class="pb">階段 H　連中控 Remote（需中控人員一起）</h2>
+<div class="box info">Remote 流程：待機 10 → 送「開始」給中控 12 → 等中控放行 14（中控在這時審查工單／工號／靜電／前站 NG）→ 20～60 鎖付 → 50 送「完工」→ 中控回 ACK 完工。<br>
+中控斷線 5 秒會<b>自動降成 Local</b>；恢復後自動回 Remote。</div>
+<table class="steps">
+<tr><th>編號</th><th>做法</th><th>應該看到</th><th>記錄</th><th>結果</th></tr>
+<tr><td class="no">H0</td><td><b>工程師</b>：確認 PLC 網路、Modbus 設定與中控設定 <span class="tbc">【待確認：PLC IP、埠號、MODBUS 裝置分配 D7000～】</span>。中控人員啟動中控。</td><td>中控顯示已連線。</td><td class="rec">PLC IP：＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H1</td><td>進「中控監視」頁，看 10 秒。</td><td>中控心跳、PLC 心跳數字相同且每秒 +1；「中控連線正常」綠；心跳無變化 &lt; 1.0。</td><td class="rec">10 秒內增加＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H2</td><td>看參數區。</td><td>中控回應逾時 30.0、心跳逾時 5.0、靜電檢查依現場（沒接＝不檢查）。<b>不一樣就告訴工程師，不要自己改。</b></td><td class="rec">＿＿／＿＿／＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H3</td><td>看「版號」與中控收到的設備編號。</td><td>版號 3.01；中控看到「MC-D002」（亂碼時工程師切換字串順序）。</td><td class="rec">版號＿＿ 編號＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H4</td><td>中控下發時間後，看「中控下發時間」「校時次數」，以及自動頁右上的時間。</td><td>時間和中控一致；校時次數 +1（時間差不到 1 分鐘不會再校）。</td><td class="rec">次數＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H5</td><td>停止中按「Remote/Local 切換」→ Remote。</td><td>右上 Remote 綠。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H6</td><td>中控人員：登入工號、選工單。測試員：按「啟動」→ 放工件（廢板或正式件由工程師決定）、夾好。</td><td>狀態「等待中控」→ 中控放行 → 鎖付 → OK；系統訊息「進站成功」；作業序號、工單、工號正確。</td><td class="rec">序號：＿＿＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H7</td><td>對照中控收到的資料。</td><td>開始時間、結束時間、Cycle Time、OK/NG 和 HMI 一樣；中控 ACK 完工後「B02 完工」熄滅。</td><td class="rec">中控 CT＿＿ HMI CT＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H8</td><td>中控人員故意不放行（例如登出工號），測試員放件夾好。</td><td>狀態「等待中控」；約 30 秒後黃色警告「中控未放行」、回待機、<b>不鎖、不計數</b>；系統訊息顯示原因。<b>治具放開再夾</b>才會重新要求。</td><td class="rec">訊息：＿＿＿＿</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H9</td><td><b>工程師</b>停止中控程式（或拔網路線）。看 HMI。</td><td>約 5 秒後「中控通訊中斷」紅閃、Remote 變 Local、黃燈閃（警告）。</td><td class="rec">＿＿秒後變化</td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H10</td><td>H9 狀態下放件夾好。</td><td>機台以 Local 方式鎖付（不問中控）。<span class="tbc">【待確認：中控斷線時是否允許繼續生產】</span></td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H11</td><td>工程師恢復中控。</td><td>連線恢復綠；自動回 Remote。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG</td></tr>
+<tr><td class="no">H12</td><td>（有接靜電才做）中控監視頁靜電檢查由工程師改成「檢查」。拿掉靜電手環，放件夾好。</td><td>警告「靜電不 OK」；<b>不會開始鎖付</b>。<br><b>注意：</b>v3.1 已知行為——戴回手環的瞬間，治具若還夾著會<b>立刻開始鎖</b>。做這項時手要先離開危險區。</td><td class="rec"></td><td class="ck">☐ OK<br>☐ NG<br>☐ 不適用</td></tr>
+</table>
+<div class="hold"><span class="t">關卡 H（工程師＋中控人員確認）</span>　☐ 心跳、放行、完工、ACK 交握正確　☐ 中控資料與 HMI 一致　☐ 斷線處理正確<br>
+工程師<span class="sign"></span>　中控人員<span class="sign"></span>　時間<span class="sign" style="min-width:80px"></span></div>
+
+<!-- ===================== I ===================== -->
+<h2 class="pb">階段 I　連續生產資料收集</h2>
+<p>用正式工件，Remote 模式（中控沒上線時用 Local，並在備註寫明），連續做 <b>30 片</b>。每片填一列（附錄 C）。做完計算：</p>
+<table>
+<tr><th style="width:40%">項目</th><th>結果</th></tr>
+<tr><td>總片數／OK／NG</td><td>＿＿／＿＿／＿＿</td></tr>
+<tr><td>HMI Cycle Time 平均／最短／最長（秒）</td><td>＿＿／＿＿／＿＿</td></tr>
+<tr><td>碼錶 放件到取件 平均（秒）</td><td>＿＿</td></tr>
+<tr><td>和目標 3 秒／點比較</td><td>＿＿</td></tr>
+<tr><td>異常次數（附錄 C 異常記錄表）</td><td>＿＿</td></tr>
+<tr><td>中控資料遺漏筆數</td><td>＿＿</td></tr>
+</table>
+<p class="small">說明：HMI 的 Cycle Time 是從「選表」到「判定」的時間，不含放件、夾持、取件；碼錶時間是整個人工作業時間。</p>
+<div class="hold"><span class="t">最終簽核</span><br>
+☐ 全部階段完成　☐ 有未解決問題（列在異常記錄表）<br>
+測試員<span class="sign"></span>　負責工程師<span class="sign"></span>　日期<span class="sign" style="min-width:90px"></span></div>
+
+<!-- ===================== 附錄 A ===================== -->
+<h2 class="pb">附錄 A　名詞小辭典</h2>
+<table>
+<tr><th style="width:22%">名詞</th><th>意思</th></tr>
+<tr><td>PLC</td><td>機台的「大腦」，三菱 FX5S。依程式決定機台什麼時候動。</td></tr>
+<tr><td>HMI</td><td>觸控螢幕，用來看狀態和按按鈕。</td></tr>
+<tr><td>RC75</td><td>日東精工的鎖螺絲控制器，負責起子上下（Z 軸）、旋轉、送螺絲。PLC 只告訴它「開始」「回原點」「重置」。</td></tr>
+<tr><td>治具</td><td>夾住工件的裝置，有自己的控制器（VB1）。夾好後告訴 PLC「治具夾好」。</td></tr>
+<tr><td>原點／Home／安全點</td><td>機構的起始位置。起子的原點在最上面，這時候放取工件是安全的。</td></tr>
+<tr><td>復歸</td><td>清除已排除的異常，並讓 RC75 重置、回原點。只有停止中有效。</td></tr>
+<tr><td>急停</td><td>紅色大按鈕，按下立刻停止。放開要旋轉拉起。</td></tr>
+<tr><td>Local／Remote</td><td>Local＝單機，不問中控；Remote＝每一件都要中控放行並回報結果。</td></tr>
+<tr><td>中控</td><td>工廠的生產管理電腦系統，透過網路（Modbus TCP）和 PLC 交換資料。</td></tr>
+<tr><td>心跳</td><td>中控每秒送一個會加 1 的數字，PLC 看它有沒有在變，判斷連線是否正常。</td></tr>
+<tr><td>放行</td><td>中控檢查工單、工號、靜電、前站結果都 OK 後，允許機台鎖這一件。</td></tr>
+<tr><td>ACK</td><td>「收到」的意思。ACK 完工＝中控說「完工資料我收到了」。</td></tr>
+<tr><td>TABLE</td><td>RC75 的鎖付程式編號（1～3），不同產品用不同 TABLE。</td></tr>
+<tr><td>Cycle Time（CT）</td><td>鎖一顆所花的時間。</td></tr>
+<tr><td>停電保持</td><td>斷電後數值不會消失（計數、TABLE、參數）。</td></tr>
+<tr><td>模擬模式</td><td>PLC 假裝有機台，只在電腦測試用。<b>現場一定要 OFF。</b></td></tr>
+</table>
+
+<!-- ===================== 附錄 B ===================== -->
+<h2>附錄 B　步序與警報一覽</h2>
+<h3>B.1 步序（HMI 右下「步序」）</h3>
+<table>
+<tr><th style="width:12%">步序</th><th>意思</th><th style="width:12%">步序</th><th>意思</th></tr>
+<tr><td>0</td><td>停止中</td><td>30</td><td>送「開始」給 RC75，等它開始</td></tr>
+<tr><td>10</td><td>待機中，等治具夾好</td><td>40</td><td>鎖付中，等 RC75 完成（最多 15 秒）</td></tr>
+<tr><td>12</td><td>Remote：送「開始」給中控</td><td>50</td><td>判定 OK/NG、計數、送完工（很快）</td></tr>
+<tr><td>14</td><td>Remote：等中控放行（最多 30 秒）</td><td>56</td><td>OK → 60；NG → 停機</td></tr>
+<tr><td>20</td><td>選 TABLE，確認條件</td><td>60</td><td>等起子回原點（最多 10 秒）</td></tr>
+</table>
+<h3>B.2 警報與警告</h3>
+<table>
+<tr><th style="width:24%">畫面文字（大意）</th><th style="width:10%">類型</th><th>常見原因</th><th style="width:26%">測試員要做的事</th></tr>
+<tr><td>緊急停止</td><td>停機</td><td>急停被按下</td><td>確認安全 → 放開 → 復歸</td></tr>
+<tr><td>RC75 異常</td><td>停機</td><td>RC75 報警</td><td rowspan="7"><b>拍照、記錄、叫工程師。</b>不要自己復歸重試。</td></tr>
+<tr><td>啟動逾時</td><td>停機</td><td>RC75 沒有在 3 秒內開始</td></tr>
+<tr><td>鎖付逾時</td><td>停機</td><td>鎖付超過 15 秒沒完成</td></tr>
+<tr><td>鎖付 NG</td><td>停機</td><td>扭力或浮牙 NG</td></tr>
+<tr><td>送料／取料異常</td><td>停機</td><td>螺絲卡住、沒吸到</td></tr>
+<tr><td>治具停止要求</td><td>停機</td><td>運轉中治具要求停止</td></tr>
+<tr><td>原點復歸逾時</td><td>停機</td><td>10 秒內沒回到原點</td></tr>
+<tr><td>未 READY／TABLE 錯</td><td>警告</td><td>RC75 沒準備好或不在原點</td><td>按復歸；仍出現叫工程師</td></tr>
+<tr><td>螺絲不足</td><td>警告</td><td>送料器快沒螺絲</td><td>告訴工程師補螺絲</td></tr>
+<tr><td>中控未放行／未回應</td><td>警告</td><td>工單、工號、靜電、前站 NG</td><td>看系統訊息，告訴中控人員</td></tr>
+<tr><td>中控通訊中斷</td><td>警告</td><td>網路或中控程式</td><td>告訴工程師</td></tr>
+<tr><td>靜電不 OK</td><td>警告</td><td>沒戴靜電手環</td><td>手離開危險區後再戴好</td></tr>
+<tr><td>完工待收時中控斷線</td><td>紅燈</td><td>完工資料還沒被中控收走就斷線</td><td>不要清除，叫工程師；恢復後中控會補收</td></tr>
+</table>
+
+<!-- ===================== 附錄 C ===================== -->
+<h2 class="pb">附錄 C　記錄表</h2>
+<h3>C.1 連續生產記錄表（F4、I 階段）</h3>
+<table class="blank">
+<tr><th style="width:6%">#</th><th style="width:16%">工件序號</th><th style="width:11%">開始時間</th><th style="width:11%">HMI CT(s)</th><th style="width:11%">碼錶(s)</th><th style="width:9%">OK/NG</th><th style="width:10%">扭力</th><th>外觀／備註</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>6</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>7</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>8</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>9</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>10</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>11</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>12</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>13</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>14</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>15</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>16</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>17</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>18</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>19</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>20</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<table class="blank pb">
+<tr><th style="width:6%">#</th><th style="width:16%">工件序號</th><th style="width:11%">開始時間</th><th style="width:11%">HMI CT(s)</th><th style="width:11%">碼錶(s)</th><th style="width:9%">OK/NG</th><th style="width:10%">扭力</th><th>外觀／備註</th></tr>
+<tr><td>21</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>22</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>23</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>25</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>26</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>27</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>28</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>29</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>30</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<h3>C.2 異常記錄表（每次停下來都要寫）</h3>
+<table class="blank">
+<tr><th style="width:6%">#</th><th style="width:11%">時間</th><th style="width:10%">步驟</th><th style="width:25%">發生了什麼</th><th style="width:18%">HMI 橫幅文字</th><th style="width:8%">照片</th><th>工程師處理</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>6</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>7</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>8</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<h3>C.3 照片清單</h3>
+<table class="blank">
+<tr><th style="width:10%">照片＃</th><th style="width:12%">步驟</th><th>拍了什麼</th><th style="width:10%">照片＃</th><th style="width:12%">步驟</th><th>拍了什麼</th></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<!-- ===================== 附錄 D ===================== -->
+<h2 class="pb">附錄 D　工程師測試前確認清單（【待確認】事項）</h2>
+<p>這些事項 PLC 程式和現有文件無法回答，<b>必須在測試前由工程師確認並填寫</b>。沒填完不可以開始 D 階段。</p>
+<table>
+<tr><th style="width:6%">#</th><th style="width:44%">事項</th><th>答案（工程師填寫）</th></tr>
+<tr><td>1</td><td>每個急停按鈕是否同時停止 PLC、RC75 起子、治具？急停是否硬線切斷 RC75 伺服／起子電源？</td><td></td></tr>
+<tr><td>2</td><td>送電順序（主電源、DC24V、PLC、RC75、治具、氣源）</td><td></td></tr>
+<tr><td>3</td><td>RC75 上電後如何回原點（自動／面板／教導盒）？原點位置？</td><td></td></tr>
+<tr><td>4</td><td>治具如何回原點？原點位置？放取工件的安全流程（要不要先按急停）？</td><td></td></tr>
+<tr><td>5</td><td>治具收到「機台待機」（VB1-X1）與「機台停止」（VB1-X0）時的動作</td><td></td></tr>
+<tr><td>6</td><td>手動頁面實際按鈕文字（填到第 3.3 節）</td><td></td></tr>
+<tr><td>7</td><td>TABLE 1／2／3 對應的產品與 RC75 程式</td><td></td></tr>
+<tr><td>8</td><td>「送螺絲」手動按鈕是否需要測試？一次會送幾顆？</td><td></td></tr>
+<tr><td>9</td><td>G5 要怎麼安全地製造一顆 NG？</td><td></td></tr>
+<tr><td>10</td><td>靜電 X20/X21 是否已接線？D214 靜電檢查要開還是關？</td><td></td></tr>
+<tr><td>11</td><td>PLC IP、Modbus TCP 埠號、GX Works3 MODBUS 裝置分配（D7000～D7255）是否已設定？</td><td></td></tr>
+<tr><td>12</td><td>上電預設 Remote（M2050）是否要保留？中控斷線時是否允許以 Local 繼續生產？</td><td></td></tr>
+<tr><td>13</td><td>D213 中控回應逾時：v3.1 預設 30.0 秒（HMI 設計稿範例顯示 10.0），實機值是否正確？</td><td></td></tr>
+<tr><td>14</td><td>HMI 版號欄顯示 3.00（設計稿），v3.1 PLC 寫的是 301，HMI 是否已更新？</td><td></td></tr>
+<tr><td>15</td><td>v3.1 已知行為：靜電不 OK 時治具若一直夾著，靜電恢復 OK 會立刻開始鎖付。是否接受（或先修改程式）？</td><td></td></tr>
+</table>
+<p class="small">資料來源：PLC_v3_1 程式（P00～P75）、IO_device_comment_v3_1.csv、HMI_自動頁面_v3.png、HMI_中控監視_v3.png、日東精工規格書與 RC75-T1 PLC-IO 圖、治具 VB1-24MT 配線圖、GXW3_v3_1_test_report.md（模擬測試 m1～m8 全部 PASS）。</p>
+
+</body>
+</html>
