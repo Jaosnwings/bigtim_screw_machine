@@ -1,0 +1,4 @@
+# GX Works3 暫存/鎖定檔
+*.gx3.lck
+~$*
+*.tmp

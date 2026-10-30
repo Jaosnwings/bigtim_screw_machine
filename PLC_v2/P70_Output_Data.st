@@ -1,0 +1,17 @@
+(* P70_Output_Data  M -> Y、生產資料  v2 *)
+IF M50 THEN
+    Y0 := FALSE; Y1 := FALSE; Y2 := FALSE; Y3 := FALSE; Y4 := FALSE; Y5 := FALSE; Y6 := FALSE; Y7 := FALSE;
+    Y10 := FALSE; Y11 := FALSE; Y12 := FALSE; Y13 := FALSE; Y14 := FALSE; Y15 := FALSE;
+ELSE
+    Y0 := M400; Y1 := M401; Y2 := FALSE; Y3 := FALSE; Y4 := M404; Y5 := M405; Y6 := M406; Y7 := M407;
+    Y10 := M410; Y11 := M411; Y12 := M412; Y13 := M413; Y14 := M414; Y15 := M415;
+END_IF;
+M205 := M10; M206 := M11; M207 := M13; M208 := M5; M209 := M4; M210 := M7;
+IF M130 AND NOT M200 THEN
+    D300:D := 0; D302:D := 0; D304:D := 0;
+END_IF;
+IF D304:D > 0 THEN
+    D306 := DINT_TO_INT(D300:D * 1000 / D304:D);
+ELSE
+    D306 := 0;
+END_IF;
