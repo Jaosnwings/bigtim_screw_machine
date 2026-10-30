@@ -2,3 +2,5 @@
 *.gx3.lck
 ~$*
 *.tmp
+# GP-Pro EX 自動備份
+*.bake
