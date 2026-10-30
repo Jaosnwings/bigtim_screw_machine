@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>shot</title>
+<style>
+html, body { margin: 0; background: #fff; }
+#cv { position: relative; width: 840px; height: 512px; background: #fff; overflow: hidden;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+#scr { position: absolute; left: 20px; top: 16px; width: 800px; height: 480px; }
+#scr > * { position: absolute; }
+.v { display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; box-sizing: border-box;
+     font-family: Consolas, monospace; color: #fff; font-size: 18px; }
+.s { display: flex; align-items: center; font-family: Consolas, monospace; color: #222; font-size: 16px; white-space: pre; }
+.t { display: flex; align-items: center; color: #222; font-size: 16px; white-space: pre; }
+.co { border: 4px solid #E0101A; border-radius: 4px; box-sizing: border-box; }
+.co.look { border-color: #0B57D0; border-style: dashed; }
+.bd { position: absolute; min-width: 26px; padding: 0 5px; box-sizing: border-box; height: 26px; border-radius: 13px; background: #E0101A; color: #fff;
+      font: bold 17px/26px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.bd.look { background: #0B57D0; }
+</style></head>
+<body><div id="cv"><div id="scr"></div></div>
+<script src="shots.js"></script>
+<script>
+// 每張圖＝HMI 專案實際使用的背景圖（HMI/v4_bg/bg_*.png）＋同一組狀態圖（HMI/v4_bg/states/*.png），
+// 依步驟疊上，再加數值與框線。狀態圖座標＝GP-Pro 專案裡 Image Placement 的座標。
+const BG = '../../HMI/v4_bg/';
+const POS = {
+  local: [422, 9], comm_ng: [517, 9],
+  st: [392, 54], jig_ng: [392, 98], stopreq: [392, 131], esd_ng: [392, 164],
+  rdy_ng: [392, 197], home_ng: [484, 197], estop: [392, 230],
+  res: [16, 223], tbl1: [112, 412], tbl2: [226, 412], tbl3: [340, 412],
+  mode: [520, 413], sim: [655, 439],
+  man_mode_on: [20, 62], man_sim_on: [176, 62], man_ready_on: [332, 62], man_home_on: [488, 62], man_cycle_on: [644, 62],
+  h_remote: [18, 148], h_pass: [108, 148], h_ackst: [198, 148], h_ackend: [288, 148],
+  h_comm_ng: [18, 314], h_esd_on: [122, 445], h_run: [523, 115],
+  h_b01: [410, 198], h_b02: [504, 198], h_b03: [598, 198], h_b04: [692, 198], h_b05: [410, 230],
+  h_b08: [504, 230], h_b09: [598, 230], h_b10: [692, 230], h_b13: [410, 262], h_b14: [504, 262], h_b15: [598, 262],
+};
+// 數值框：[x, y, w, h, 類別]；v＝藍底白字（右對齊），s＝白框黑字
+const VAL = {
+  auto: {
+    good: [662, 90, 124, 25, 'v'], bad: [662, 120, 124, 25, 'v'], total: [662, 150, 124, 28, 'v'],
+    yield: [662, 183, 104, 22, 'v'], ct: [674, 217, 96, 24, 'v'], tq: [674, 245, 112, 24, 'v'],
+    msg: [22, 80, 348, 16, 's'], sn2: [22, 100, 348, 16, 's'], sn: [90, 127, 280, 17, 's'],
+    wo: [90, 161, 140, 17, 's'], op: [286, 161, 86, 17, 's'], dev: [90, 197, 82, 17, 's'],
+    end: [249, 197, 124, 17, 's'], step: [520, 439, 60, 18, 't'], banner: [20, 281, 540, 18, 't'],
+  },
+  host: {
+    hb: [152, 84, 90, 22, 'v'], msg: [152, 114, 90, 22, 'v'], time: [125, 199, 184, 18, 's'],
+    sync: [122, 238, 70, 22, 'v'], nochg: [122, 274, 70, 22, 'v'], to: [122, 386, 70, 22, 'v'],
+    hbto: [122, 416, 70, 22, 'v'], phb: [522, 84, 90, 22, 'v'], ver: [526, 145, 82, 18, 's'],
+    start: [485, 303, 194, 18, 's'], end: [485, 333, 194, 18, 's'], ct: [485, 363, 54, 18, 's'],
+  },
+  alarm: {
+    a1: [676, 88, 108, 24, 'v'], a2: [676, 128, 108, 24, 'v'], a3: [676, 168, 108, 24, 'v'], a4: [676, 208, 108, 24, 'v'],
+    hist: [22, 86, 448, 18, 't'],
+  },
+};
+const scr = document.getElementById('scr');
+function el(tag, css, cls) { const d = document.createElement(tag); if (cls) d.className = cls; Object.assign(d.style, css); scr.appendChild(d); return d; }
+function img(name, xy) { const i = el('img', { left: xy[0] + 'px', top: xy[1] + 'px' }); i.src = BG + 'states/' + name + '.png'; }
+
+const sh = SHOTS[location.search.slice(1)];
+const page = sh.page;
+el('img', { left: 0, top: 0, width: '800px', height: '480px' }).src = BG + 'bg_' + page + '.png';
+
+if (page === 'auto') {
+  const a = sh;
+  if (a.local) img('a_local', POS.local);
+  if (a.comm_ng) img('a_comm_ng', POS.comm_ng);
+  if (a.st !== undefined && a.st !== 1) img('a_st' + a.st, POS.st);
+  for (const k of ['jig_ng', 'stopreq', 'esd_ng', 'rdy_ng', 'home_ng', 'estop']) if (a[k]) img('a_' + k, POS[k]);
+  if (a.res) img('a_res_' + a.res, POS.res);
+  if (a.tbl) img('a_tbl' + a.tbl, POS['tbl' + a.tbl]);
+  img(a.mode === 'man' ? 'a_mode_man' : 'a_mode_auto', POS.mode);
+  img(a.sim === 'on' ? 'a_sim_on' : 'a_sim_off', POS.sim);
+  // 背景圖的結果框是「－－」，數值區沒有值時補 0（和模擬器一樣）
+  const v = Object.assign({ good: '0', bad: '0', total: '0', yield: '0.0', ct: '0.0', tq: '0.00', msg: '0', step: '0', end: '00/00 00:00:00' }, a.v || {});
+  if (a.banner) v.banner = a.banner;
+  draw('auto', v);
+} else if (page === 'manual') {
+  for (const k of ['mode', 'sim', 'ready', 'home', 'cycle']) if (sh[k]) img('man_' + k + '_on', POS['man_' + k + '_on']);
+} else if (page === 'host') {
+  for (const k of ['remote', 'pass', 'ackst', 'ackend', 'comm_ng', 'esd_on']) if (sh[k]) img('h_' + k, POS['h_' + k]);
+  img('h_run' + (sh.run || 0), POS.h_run);
+  for (const b of sh.bits || []) img('h_b' + b, POS['h_b' + b]);
+  const v = Object.assign({ hb: '0', msg: '0', sync: '0', nochg: '0.0', to: '30.0', hbto: '5.0', phb: '0', ver: '3.01',
+    time: '0000/00/00 00:00:00', start: '0000/00/00 00:00:00', end: '0000/00/00 00:00:00', ct: '0.0' }, sh.v || {});
+  draw('host', v);
+} else if (page === 'alarm') {
+  draw('alarm', Object.assign({ a1: '3.0', a2: '15.0', a3: '10.0', a4: '2.0' }, sh.v || {}));
+}
+
+function draw(p, v) {
+  for (const [k, txt] of Object.entries(v)) {
+    const r = VAL[p][k]; if (!r || txt === null) continue;
+    const [x, y, w, h, c] = r;
+    const css = { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' };
+    // 白框類先蓋掉背景圖的分隔符號，再整串重畫
+    if (c === 's' && (k === 'end' || k === 'time' || k === 'start')) css.background = '#fff';
+    const d = el('div', css, c); d.textContent = txt;
+  }
+}
+
+// 框線：[x, y, w, h, 編號, 'press'|'look']，座標用 HMI 畫面座標
+for (const [x, y, w, h, n, kind] of sh.marks || []) {
+  const pad = 4;
+  el('div', { left: (x - pad) + 'px', top: (y - pad) + 'px', width: (w + pad * 2) + 'px', height: (h + pad * 2) + 'px' }, 'co ' + (kind || 'press'));
+  if (n === '' || n === undefined) continue;
+  const b = document.createElement('div');
+  b.className = 'bd ' + (kind || 'press');
+  b.textContent = n;
+  // 編號圓點放在框的右上角外側（左上角常是欄位標籤），貼邊時往內縮
+  document.getElementById('cv').appendChild(b);
+  b.style.left = Math.min(840 - b.offsetWidth - 2, x + w + pad - 12 + 20) + 'px';
+  b.style.top = Math.max(-14, y - pad - 15) + 16 + 'px';
+}
+</script></body></html>
