@@ -36,9 +36,9 @@
 | 3 | Excel：`SOP/20261102_bigtime_docking_test/點位控制流程_v3.2.xlsx`（`SOP/build_flow_v3_2.ps1` 產生） | ✅ 等使用者在現場核對黃色欄 |
 | 4 | 現場確認：F-1、F-2、F-4、Q-A 已回覆，F-3 改成現場監看 X5（rt_3 H、H-2 段）；Q-B 與硬線待回 | ⏳ 使用者 |
 | 4b | 電腦端 IO 側錄 `test_evidence/io_rec.ps1`（0.1 s、CSV，說明見 `IO側錄說明.md`）；v3.2 要把 D100、D222、D500 複製到 D7xxx 供側錄；PLC 內建追蹤（環形緩衝）列為後續 | ✅ 本機假 Modbus 測過，未上實機 |
-| 5 | PLC v3.2 程式：依 rt_3 E 表改 P00～P75，新增 P45_Force | ⏳ 未開始 |
-| 6 | GX Simulator3 全跑：EMO、光柵暫停、NG、兩點、心跳逾時、強制解除 | ⏳ |
-| 7 | HMI 專案：畫面 3、5、自動頁（新步序文字、單件、等待條件 D2051、強制中紅標）、警報頁 M155～M158 | ⏳ |
+| 5 | PLC v3.2 程式：`PLC_v3_2/*.st`（10 檔，新增 P45_Force），`ScrewMachine_v3_2.gx3` Rebuild All 0 錯誤 0 警告 | ✅ 2026-11-02 |
+| 6 | GX Simulator3：急停、復歸、兩點循環、連續兩件、NG、HMI 強制與心跳逾時都通過（`GXW3_v3_2_test_report.md`）；光柵、中控、手動 Y3/Y5、強制逾時還沒測 | 🔶 部分 |
+| 7 | HMI `HMI/ScrewMachine_HMI_v5_PLCv3_2.prxe`：畫面 3 手動頁重做、新畫面 5 IO 監視/強制、全域 D-Script 心跳（每 1 秒翻轉 M830）；Error Check 0/0。**自動頁（單件、等待條件 D2051、新步序文字）與警報頁 M155/M157 文字還沒改** | 🔶 部分 |
 | 8 | 使用者同意 → 備份 PLC → 寫入實機 → 現場 F 題逐項驗證 | ⏳ 要使用者明確同意 |
 
 ## 4. 現場問題

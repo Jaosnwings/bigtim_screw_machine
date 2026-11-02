@@ -7,8 +7,8 @@
 // 手動頁（Screen 3）v3.2。依 SOP/20261102_bigtime_docking_test/roundtable/rt_3_fable_ruling.md C。
 // 狀態燈畫 OFF；?demo 顯示待機正常的樣子。
 const S = [
-  ['手動模式', 'M201'], ['急停 X0', 'X0'], ['光柵 X10', 'X10'], ['READY X11', 'X11'],
-  ['HOME X12', 'X12'], ['治具水平 X5', 'X5'], ['啟動鈕 X7', 'X7'],
+  ["手動模式", "M201"], ["急停 X0", "X0"], ["光柵 X10", "X10"], ["準備 X11", "X11"],
+  ["原點 X12", "X12"], ["治具水平X5", "X5"], ["啟動鈕 X7", "X7"],
 ];
 const demoOn = { M201: 1, X0: 1, X10: 1, X11: 1, X12: 1, X5: 1 };
 const items = [
@@ -22,8 +22,9 @@ const items = [
 ];
 S.forEach(([t, k], i) => {
   const x = 16 + i * 111;
-  items.push([x, 59, 106, 32, 'lamp', t, { bg: 'GY', fg: 'TX', fs: 14 }]);
-  if (demoOn[k]) items.push([x, 59, 106, 32, 'lamp', t, { bg: 'G1', fs: 14, demo: 1 }]);
+  items.push([x, 59, 106, 32, "lamp", t, { bg: "WH", fg: "TX", fs: 13, al: "l", pad: "0 4px" }]);
+  items.push([x + 84, 65, 20, 20, "rect", "", { bg: "GY", css: "border-radius:10px;border:2px solid #555" }]);
+  if (demoOn[k]) items.push([x + 84, 65, 20, 20, "rect", "", { bg: "G3", css: "border-radius:10px;border:2px solid #555", demo: 1 }]);
 });
 items.push(
   // 2. 單一動作
@@ -42,10 +43,12 @@ items.push(
   [20, 360, 244, 102, 'btn', '治具停止 Y3<br><span style="font-size:14px">解除後看 X5 有沒有 ON</span>', { bg: 'BR', fs: 21 }],
   [276, 360, 244, 102, 'btn', '治具啟動 Y5<br><span style="font-size:14px">按一下治具前進一站</span>', { bg: 'G1', fs: 21 }],
   [532, 360, 244, 102, 'btn', 'IO 監視／強制<br><span style="font-size:14px">X、Y 全點位</span>', { bg: 'TT', fs: 21 }],
-  [144, 364, 56, 22, 'lamp', 'Y3', { bg: 'GY', fg: 'TX', fs: 13 }],
-  [204, 364, 56, 22, 'lamp', 'X5', { bg: 'GY', fg: 'TX', fs: 13 }],
-  [144, 364, 56, 22, 'lamp', 'Y3', { bg: 'AM', fg: 'TX', fs: 13, demo: 1 }],
-  [204, 364, 56, 22, 'lamp', 'X5', { bg: 'G1', fs: 13, demo: 1 }],
+  [144, 364, 56, 24, "lamp", "Y3", { bg: "WH", fg: "TX", fs: 13, al: "l", pad: "0 5px" }],
+  [204, 364, 56, 24, "lamp", "X5", { bg: "WH", fg: "TX", fs: 13, al: "l", pad: "0 5px" }],
+  [176, 367, 18, 18, "rect", "", { bg: "GY", css: "border-radius:9px;border:2px solid #555" }],
+  [236, 367, 18, 18, "rect", "", { bg: "GY", css: "border-radius:9px;border:2px solid #555" }],
+  [176, 367, 18, 18, "rect", "", { bg: "AM", css: "border-radius:9px;border:2px solid #555", demo: 1 }],
+  [236, 367, 18, 18, "rect", "", { bg: "G3", css: "border-radius:9px;border:2px solid #555", demo: 1 }],
 );
 render(items);
 </script></body></html>

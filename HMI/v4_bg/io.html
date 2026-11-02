@@ -8,9 +8,9 @@
 // 燈畫 OFF 狀態；?demo 顯示 ON／強制中的樣子。強制位 M800～M813 依序 = Y0～Y7、Y10～Y15。
 const X = [
   ['X0', '急停 EMO', 1], ['X10', '安全光柵', 1],
-  ['X1', '未使用', 0], ['X11', 'RC75 READY', 1],
-  ['X2', '未使用', 0], ['X12', 'RC75 HOME', 1],
-  ['X3', '靜電 NG', 0], ['X13', 'RC75 ALARM', 0],
+  ['X1', '未使用', 0], ['X11', 'RC75 準備', 1],
+  ['X2', '未使用', 0], ['X12', 'RC75 原點', 1],
+  ['X3', '靜電 NG', 0], ['X13', 'RC75 異常', 0],
   ['X4', '未使用', 1], ['X14', '循環完成', 0],
   ['X5', '治具水平', 1], ['X15', '螺絲不足', 0],
   ['X6', '治具停止', 0], ['X16', 'RC75 蜂鳴', 0],
@@ -23,7 +23,7 @@ const YL = [
   ['Y6', '預留(=紅)', 't', 0, 0], ['Y7', '預留', 'u', 0, 0],
 ];
 const YR = [
-  ['Y10', 'RC75 RETURN', 'h', 0, 0], ['Y11', 'RC75 RESET', 'h', 0, 0], ['Y12', 'CYCLE START', 'h', 0, 0],
+  ['Y10', 'RETURN', 'h', 0, 0], ['Y11', 'RESET 重置', 'h', 0, 0], ['Y12', 'START 鎖付', 'h', 0, 0],
   ['Y13', '送螺絲', 'h', 0, 0], ['Y14', 'TABLE 1', 't', 1, 0], ['Y15', 'TABLE 2', 'u', 0, 0],
 ];
 const items = [
@@ -39,20 +39,22 @@ const items = [
   [678, 54, 110, 26, 'btn', '全部解除', { bg: 'SL', fs: 15 }],
   // X 面板
   [10, 88, 300, 384, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
-  [18, 92, 200, 22, 'text', '輸入 X（綠＝ON）', { fs: 16, fg: 'TT' }],
+  [18, 92, 200, 22, 'text', '輸入 X（右側燈綠＝ON）', { fs: 16, fg: 'TT' }],
   // Y 面板
   [318, 88, 476, 384, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
-  [326, 92, 460, 22, 'text', '輸出 Y（綠＝ON）　<span style="background:#455A64;color:#fff;padding:0 4px">強制</span> 點兩下切換　<span style="background:#F9A825;padding:0 4px">按住</span> 放開即停', { fs: 15, fg: 'TT' }],
+  [326, 92, 460, 22, 'text', '輸出 Y（燈綠＝ON）　<span style="background:#455A64;color:#fff;padding:0 4px">強制</span> 按一下切換　<span style="background:#F9A825;padding:0 4px">按住</span> 放開即停', { fs: 15, fg: 'TT' }],
 ];
 X.forEach(([p, n, on], i) => {
   const col = i % 2, row = Math.floor(i / 2);
   const x = 18 + col * 146, y = 120 + row * 43;
-  items.push([x, y, 140, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'GY', fg: 'TX', fs: 14, al: 'l', pad: '0 6px' }]);
-  if (on) items.push([x, y, 140, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'G2', fs: 14, al: 'l', pad: '0 6px', demo: 1 }]);
+  items.push([x, y, 140, 38, "lamp", `<b>${p}</b> ${n}`, { bg: "WH", fg: "TX", fs: 14, al: "l", pad: "0 6px" }]);
+  items.push([x + 112, y + 8, 22, 22, "rect", "", { bg: "GY", css: "border-radius:11px;border:2px solid #555" }]);
+  if (on) items.push([x + 112, y + 8, 22, 22, "rect", "", { bg: "G3", css: "border-radius:11px;border:2px solid #555", demo: 1 }]);
 });
 function yRow([p, n, t, on, f], x, y) {
-  items.push([x, y, 146, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'GY', fg: 'TX', fs: 14, al: 'l', pad: '0 6px' }]);
-  if (on) items.push([x, y, 146, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'G2', fs: 14, al: 'l', pad: '0 6px', demo: 1 }]);
+  items.push([x, y, 146, 38, "lamp", `<b>${p}</b> ${n}`, { bg: "WH", fg: "TX", fs: 14, al: "l", pad: "0 6px" }]);
+  items.push([x + 118, y + 8, 22, 22, "rect", "", { bg: "GY", css: "border-radius:11px;border:2px solid #555" }]);
+  if (on) items.push([x + 118, y + 8, 22, 22, "rect", "", { bg: "G3", css: "border-radius:11px;border:2px solid #555", demo: 1 }]);
   if (t === 'n' || t === 'u') {
     items.push([x + 150, y, 74, 38, 'text', t === 'n' ? '不可強制' : '未接', { fs: 13, fg: 'GD', al: 'c' }]);
     return;
