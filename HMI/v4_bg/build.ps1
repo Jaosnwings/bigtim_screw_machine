@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 $here = $PSScriptRoot
-$pages = @('auto', 'host', 'manual', 'alarm') | Where-Object { Test-Path (Join-Path $here "$_.html") }
+$pages = @('auto', 'host', 'manual', 'alarm', 'io') | Where-Object { Test-Path (Join-Path $here "$_.html") }
 foreach ($p in $pages) {
     foreach ($mode in 'bg', 'demo') {
         $url = 'file:///' + ((Join-Path $here "$p.html") -replace '\\', '/')

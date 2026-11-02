@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>io</title>
+<link rel="stylesheet" href="common.css"></head>
+<body><div id="scr"></div>
+<script src="common.js"></script>
+<script>
+// IO 監視／強制（Screen 5，v3.2 新增）。點位與強制規則＝SOP/20261102_bigtime_docking_test/roundtable/rt_3_fable_ruling.md A、D。
+// 燈畫 OFF 狀態；?demo 顯示 ON／強制中的樣子。強制位 M800～M813 依序 = Y0～Y7、Y10～Y15。
+const X = [
+  ['X0', '急停 EMO', 1], ['X10', '安全光柵', 1],
+  ['X1', '未使用', 0], ['X11', 'RC75 READY', 1],
+  ['X2', '未使用', 0], ['X12', 'RC75 HOME', 1],
+  ['X3', '靜電 NG', 0], ['X13', 'RC75 ALARM', 0],
+  ['X4', '未使用', 1], ['X14', '循環完成', 0],
+  ['X5', '治具水平', 1], ['X15', '螺絲不足', 0],
+  ['X6', '治具停止', 0], ['X16', 'RC75 蜂鳴', 0],
+  ['X7', '啟動鈕', 0], ['X17', '締付 OK', 0],
+];
+// [點, 名稱, 類型 t=切換 h=按住 n=不可強制 u=未接, demo ON, demo 強制]
+const YL = [
+  ['Y0', '塔燈紅', 't', 0, 0], ['Y1', '塔燈綠', 't', 1, 1], ['Y2', '蜂鳴器', 't', 0, 0],
+  ['Y3', '治具停止', 't', 0, 0], ['Y4', '安全位置', 'n', 1, 0], ['Y5', '治具啟動', 'h', 0, 0],
+  ['Y6', '預留(=紅)', 't', 0, 0], ['Y7', '預留', 'u', 0, 0],
+];
+const YR = [
+  ['Y10', 'RC75 RETURN', 'h', 0, 0], ['Y11', 'RC75 RESET', 'h', 0, 0], ['Y12', 'CYCLE START', 'h', 0, 0],
+  ['Y13', '送螺絲', 'h', 0, 0], ['Y14', 'TABLE 1', 't', 1, 0], ['Y15', 'TABLE 2', 'u', 0, 0],
+];
+const items = [
+  [0, 0, 800, 44, 'rect', '', { bg: 'TB' }],
+  [0, 44, 800, 2, 'rect', '', { bg: 'TL' }],
+  [12, 7, 440, 30, 'text', 'MC-D002 鎖螺絲站　IO 監視／強制', { fg: 'TT', fs: 24 }],
+  [706, 7, 88, 35, 'btn', '回手動頁', { bg: 'BR', fs: 15 }],
+  // 提示列
+  [10, 52, 784, 30, 'rect', '', { bg: 'CR', css: 'border:1px solid #888' }],
+  [16, 54, 540, 26, 'text', '強制只在手動停止中有效；切自動、急停、HMI 斷線、逾時會全部解除', { fs: 14 }],
+  [566, 54, 104, 26, 'lamp', '強制中', { bg: 'GY', fg: 'TX', fs: 15 }],
+  [566, 54, 104, 26, 'lamp', '強制中', { bg: 'R1', fs: 15, demo: 1 }],
+  [678, 54, 110, 26, 'btn', '全部解除', { bg: 'SL', fs: 15 }],
+  // X 面板
+  [10, 88, 300, 384, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
+  [18, 92, 200, 22, 'text', '輸入 X（綠＝ON）', { fs: 16, fg: 'TT' }],
+  // Y 面板
+  [318, 88, 476, 384, 'rect', '', { bg: 'PN', css: 'border:1px solid #7FB4C8' }],
+  [326, 92, 460, 22, 'text', '輸出 Y（綠＝ON）　<span style="background:#455A64;color:#fff;padding:0 4px">強制</span> 點兩下切換　<span style="background:#F9A825;padding:0 4px">按住</span> 放開即停', { fs: 15, fg: 'TT' }],
+];
+X.forEach(([p, n, on], i) => {
+  const col = i % 2, row = Math.floor(i / 2);
+  const x = 18 + col * 146, y = 120 + row * 43;
+  items.push([x, y, 140, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'GY', fg: 'TX', fs: 14, al: 'l', pad: '0 6px' }]);
+  if (on) items.push([x, y, 140, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'G2', fs: 14, al: 'l', pad: '0 6px', demo: 1 }]);
+});
+function yRow([p, n, t, on, f], x, y) {
+  items.push([x, y, 146, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'GY', fg: 'TX', fs: 14, al: 'l', pad: '0 6px' }]);
+  if (on) items.push([x, y, 146, 38, 'lamp', `<b>${p}</b> ${n}`, { bg: 'G2', fs: 14, al: 'l', pad: '0 6px', demo: 1 }]);
+  if (t === 'n' || t === 'u') {
+    items.push([x + 150, y, 74, 38, 'text', t === 'n' ? '不可強制' : '未接', { fs: 13, fg: 'GD', al: 'c' }]);
+    return;
+  }
+  const h = t === 'h';
+  items.push([x + 150, y, 74, 38, 'btn', h ? '按住' : '強制', { bg: h ? 'AM' : 'SL', fg: h ? 'TX' : 'WH', fs: 16 }]);
+  if (f) items.push([x + 150, y, 74, 38, 'btn', '強制中', { bg: 'YL', fg: 'TX', fs: 15, css: 'border-color:#C62828;border-width:3px', demo: 1 }]);
+}
+YL.forEach((r, i) => yRow(r, 326, 120 + i * 43));
+YR.forEach((r, i) => yRow(r, 560, 120 + i * 43));
+items.push([560, 378, 230, 92, 'text', '<span style="color:#C62828">⚠ 測試暫定：Y5 後等 3 秒（D234）即鎖付</span><br>Y3 解除後看 X5 是否 ON（治具回水平）<br>互鎖：Y12 需 READY＋HOME＋光柵、<br>無 ALARM，與 Y10／Y13 互斥。<br>按住 3 秒、切換 30 秒自動解除。', { fs: 12, fg: 'GD', lh: '1.4', css: 'white-space:normal;align-items:flex-start' }]);
+render(items);
+</script></body></html>
