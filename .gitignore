@@ -4,3 +4,5 @@
 *.tmp
 # GP-Pro EX 自動備份
 *.bake
+# HMI 改版前的本機備份（版本已在 git 歷史裡）
+HMI/backup/
