@@ -6,3 +6,9 @@
 *.bake
 # HMI 改版前的本機備份（版本已在 git 歷史裡）
 HMI/backup/
+# 現場測試包（zip 與複本，可由 repo 內檔案重建）
+release/*.zip
+release/v3.2_test_20261103/HMI/
+release/v3.2_test_20261103/PLC/
+release/v3.2_test_20261103/tools/
+*.bake

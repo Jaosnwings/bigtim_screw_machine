@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<title>鎖螺絲站 v3.2 現場點位測試程序</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10.5pt; color: #222; line-height: 1.45; }
+h1 { font-size: 17pt; margin: 0 0 2mm; color: #1D2F8F; }
+h2 { font-size: 13pt; margin: 6mm 0 2mm; padding: 1mm 2mm; background: #1D2F8F; color: #fff; }
+h3 { font-size: 11pt; margin: 4mm 0 1.5mm; color: #1D2F8F; }
+.sub { color: #555; margin-bottom: 3mm; }
+table { border-collapse: collapse; width: 100%; margin: 1.5mm 0 3mm; page-break-inside: auto; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #999; padding: 1.2mm 1.6mm; vertical-align: top; }
+th { background: #E8E6F6; text-align: left; }
+td.ck { width: 16mm; text-align: center; white-space: nowrap; }
+td.no { width: 9mm; text-align: center; font-weight: bold; }
+.warn { border: 2px solid #C62828; background: #FFF3F3; padding: 2mm 3mm; margin: 2mm 0; }
+.note { border: 1px solid #C9A227; background: #FFFBE0; padding: 2mm 3mm; margin: 2mm 0; }
+code { font-family: Consolas, monospace; background: #f1f1f1; padding: 0 1mm; }
+.box { display: inline-block; width: 3.6mm; height: 3.6mm; border: 1px solid #333; vertical-align: -0.5mm; }
+.pb { page-break-before: always; }
+.fill { color: #999; }
+.shot { margin: 2mm 0 3mm; page-break-inside: avoid; }
+.shot .cap { font-weight: bold; color: #1D2F8F; margin-bottom: 6mm; }
+.shot .frame { position: relative; width: 150mm; height: 90mm; border: 1px solid #555; }
+.shot img { width: 150mm; height: 90mm; display: block; }
+.shot .b { position: absolute; border: 2.5px solid #E00000; box-sizing: border-box; }
+.shot .t { position: absolute; left: -2px; top: -5.4mm; background: #E00000; color: #fff; font-size: 8.5pt; font-weight: bold; padding: 0 1.2mm; white-space: nowrap; line-height: 5mm; }
+.shot .legend { font-size: 9.5pt; margin-top: 1mm; color: #333; }
+</style>
+<script>
+// HMI 畫面截圖（800x480）加紅框；data-boxes = [[x, y, w, h, 標籤], ...]
+const IMG = { manual: "../../HMI/v4_bg/demo_manual.png", io: "../../HMI/v4_bg/demo_io.png", auto: "../../HMI/v4_bg/demo_auto.png" };
+function shots() {
+  document.querySelectorAll(".shot").forEach(s => {
+    let h = '<div class="cap">' + s.dataset.cap + '</div><div class="frame"><img src="' + IMG[s.dataset.img] + '">';
+    for (const [x, y, w, hh, t, p] of JSON.parse(s.dataset.boxes)) {
+      const ts = p === 'r' ? ' style="left:calc(100% + 2px);top:0;"' : p === 'i' ? ' style="top:auto;bottom:0;left:0;"' : '';
+      h += '<div class="b" style="left:' + x / 8 + '%;top:' + y / 4.8 + '%;width:' + w / 8 + '%;height:' + hh / 4.8 + '%"><span class="t"' + ts + '>' + t + '</span></div>';
+    }
+    h += '</div>';
+    if (s.dataset.legend) h += '<div class="legend">' + s.dataset.legend + '</div>';
+    s.innerHTML = h;
+  });
+}
+addEventListener("DOMContentLoaded", shots);
+</script></head><body>
+
+<h1>鎖螺絲站 v3.2 現場點位測試程序</h1>
+<div class="sub">日期：2026-11-03　PLC v3.2（FX5S 192.168.1.21）　HMI v5（ET-6400WA 192.168.1.100）　測試人員：__________</div>
+
+<div class="warn"><b>今天只做點位與元件之間的溝通確認，不追求自動流程跑完。</b>任何一步看不到預期反應，就在紀錄表寫下「看到什麼」，然後繼續下一項，不要自己改程式。<br>
+人員安全：手不要伸進治具與鎖付頭下方。要測治具會動的項目前，先喊一聲、確認旁邊沒人。急停（EMO）隨時可以按。</div>
+
+<h2>0. 準備（約 30 分鐘）</h2>
+<table>
+<tr><th class="no">#</th><th>動作</th><th>確認</th><th class="ck">完成</th></tr>
+<tr><td class="no">0-1</td><td>筆電網路設 192.168.1.x（例如 .50），能 ping 到 192.168.1.21（PLC）與 192.168.1.100（HMI）。</td><td>兩個都通</td><td class="ck"><span class="box"></span></td></tr>
+<tr><td class="no">0-2</td><td><b>先備份</b>：GX Works3 → Online → Read from PLC，讀回後另存成 <code>PLC_backup_20261103.gx3</code>。</td><td>檔案已存</td><td class="ck"><span class="box"></span></td></tr>
+<tr><td class="no">0-3</td><td>開 <code>PLC\ScrewMachine_v3_2.gx3</code> → Online → Write to PLC（全部）。CPU 不允許遠端重置，寫完要<b>關電再開</b>一次。</td><td>PLC RUN 燈亮、ERR 燈不亮</td><td class="ck"><span class="box"></span></td></tr>
+<tr><td class="no">0-4</td><td>開 GP-Pro EX 5.02，<code>HMI\ScrewMachine_HMI_v5_PLCv3_2.prxe</code> → Transfer Project → 傳到 192.168.1.100。連線密碼問主管（不寫在文件裡）。</td><td>HMI 開機後看得到手動頁、IO 監視頁</td><td class="ck"><span class="box"></span></td></tr>
+<tr><td class="no">0-5</td><td>開 IO 側錄（見第 3 節），整個測試期間都開著。<b>每做一大項就停掉重開一次</b>，用 <code>--tag</code> 標項目，例如 <code>--tag A3_EMO</code>。</td><td>畫面每 2 秒有「讀 n 次」在增加</td><td class="ck"><span class="box"></span></td></tr>
+</table>
+<div class="note">v3.2 上電預設：停止、手動模式關、Local（不連中控）。急停一上電如果是按著的，Y3（治具停止）會一直 ON，要先放開急停再按「復歸流程」。</div>
+
+<h2>1. 主要任務 A：治具點位、EMO、啟動流程</h2>
+
+<h3>A1　治具與按鈕的輸入點（HMI：手動頁 → IO 監視／強制）</h3>
+<div class="shot" data-img="manual" data-cap="HMI 畫面：手動頁（自動頁右上「手動頁面」進來）" data-boxes='[[532,360,244,102,"按這裡進 IO 監視頁"]]'></div>
+<div class="shot" data-img="io" data-cap="HMI 畫面：IO 監視／強制（右側圓燈綠＝ON）" data-boxes='[[18,120,140,38,"A1-2","i"],[18,163,140,38,"A1-3 X1","i"],[18,335,140,38,"A1-5","i"],[18,378,140,38,"A1-6","i"],[18,421,140,38,"A1-3 X7","i"],[164,120,140,38,"A1-4","i"]]' data-legend="畫面上的燈是示意（綠＝ON），以現場實際亮滅為準。"></div>
+<table>
+<tr><th class="no">#</th><th>操作</th><th>預期（IO 監視頁）</th><th class="ck">OK/NG</th></tr>
+<tr><td class="no">A1-1</td><td>不動任何東西，抄下目前亮的 X 點</td><td>正常應亮：X0、X5、X10、X11、X12（X4 一直亮是已知）</td><td class="ck"></td></tr>
+<tr><td class="no">A1-2</td><td>按下 EMO，再放開</td><td>X0 按下熄、放開亮（ON＝正常）</td><td class="ck"></td></tr>
+<tr><td class="no">A1-3</td><td>按 HMI 箱 EMO 旁的<b>綠色啟動鍵</b>，按住 2 秒再放</td><td>X7 跟著亮、熄。<b>另外記：X1 有沒有一起亮</b></td><td class="ck"></td></tr>
+<tr><td class="no">A1-4</td><td>手遮光柵，再移開</td><td>X10 遮住熄、移開亮</td><td class="ck"></td></tr>
+<tr><td class="no">A1-5</td><td>治具在水平待命位置 / 離開水平（請治具工程協助）</td><td>X5 在水平時亮</td><td class="ck"></td></tr>
+<tr><td class="no">A1-6</td><td>讓治具送「停止／異常」（請治具工程協助）</td><td>X6 亮</td><td class="ck"></td></tr>
+</table>
+
+<h3>A2　PLC 送給治具的輸出點（手動模式）</h3>
+<p>手動頁按「自動／手動切換」→ 狀態列「手動模式」燈亮。</p>
+<table>
+<tr><th class="no">#</th><th>操作</th><th>預期</th><th class="ck">OK/NG</th></tr>
+<tr><td class="no">A2-1</td><td>手動頁「治具停止 Y3」按一下</td><td>Y3 小燈亮，<b>治具停住／不能動</b>（治具工程確認收到）</td><td class="ck"></td></tr>
+<tr><td class="no">A2-2</td><td>再按一次「治具停止 Y3」解除，開始用手錶計時</td><td>治具自己回水平 → X5 亮。<b>記秒數：____ 秒</b>（30 秒內）</td><td class="ck"></td></tr>
+<tr><td class="no">A2-3</td><td>「治具啟動 Y5」按一下（0.5 秒脈衝）</td><td>治具前進一站（移到鎖付點 01）。<b>記：治具有沒有動、動到哪</b></td><td class="ck"></td></tr>
+<tr><td class="no">A2-4</td><td>再按一次「治具啟動 Y5」</td><td>治具移到鎖付點 02</td><td class="ck"></td></tr>
+<tr><td class="no">A2-5</td><td>再按一次「治具啟動 Y5」</td><td>治具回水平？<b>記實際行為</b>（這題現場還沒確認）</td><td class="ck"></td></tr>
+<tr><td class="no">A2-6</td><td>IO 監視頁看 Y4（安全位置）</td><td>Y4 跟著 X12（RC75 原點）同時亮。Y4 不能強制是正常的</td><td class="ck"></td></tr>
+<tr><td class="no">A2-7</td><td>IO 監視頁：Y0 紅燈、Y1 綠燈、Y2 蜂鳴器各按「強制」一下，看完再按一下解除</td><td>塔燈紅、綠、蜂鳴器各自動作。<b>記：哪一顆實際亮</b></td><td class="ck"></td></tr>
+</table>
+<div class="note">「治具啟動 Y5」需要 X12（原點）與 X10（光柵）都亮才會送出。按了沒反應，先看這兩顆燈。</div>
+<div class="shot" data-img="manual" data-cap="HMI 畫面：手動頁（A2-1～A2-5）" data-boxes='[[20,132,244,88,"先按：切手動"],[16,59,106,32,"手動模式燈"],[20,360,244,102,"A2-1/2 治具停止 Y3","i"],[144,364,116,24,"Y3/X5","r"],[276,360,244,102,"A2-3～5 治具啟動 Y5"]]'></div>
+<div class="shot" data-img="io" data-cap="HMI 畫面：IO 監視／強制（A2-6、A2-7）" data-boxes='[[476,120,74,38,"Y0","i"],[476,163,74,38,"Y1","i"],[476,206,74,38,"Y2","i"],[326,292,146,38,"A2-6 Y4","i"],[164,206,140,38,"X12","i"]]' data-legend="Y0／Y1／Y2 的「強制」按一下 ON、再按一下解除；Y4 旁邊寫「不可強制」，只看燈是否跟著 X12。"></div>
+
+<h3>A3　EMO（急停）</h3>
+<table>
+<tr><th class="no">#</th><th>操作</th><th>預期</th><th class="ck">OK/NG</th></tr>
+<tr><td class="no">A3-1</td><td>按下 EMO</td><td>立刻：Y3 ON（治具停）、Y0 紅燈、Y2 蜂鳴器響、強制全部解除</td><td class="ck"></td></tr>
+<tr><td class="no">A3-2</td><td>放開 EMO，等 10 秒</td><td><b>什麼都不能自己動</b>；Y3 仍然 ON</td><td class="ck"></td></tr>
+<tr><td class="no">A3-3</td><td>手動頁「復歸流程」按一下，開始計時</td><td>順序：RC75 RESET（Y11）→ Z 軸回原點（X12 亮）→ Y3 解除 → 治具回水平（X5 亮）→ 紅燈、蜂鳴器停。<b>記總秒數：____ 秒</b></td><td class="ck"></td></tr>
+<tr><td class="no">A3-4</td><td>治具在動的時候（A2-3 期間）按 EMO</td><td>治具立刻停（看治具工程端）</td><td class="ck"></td></tr>
+</table>
+
+<div class="shot" data-img="manual" data-cap="HMI 畫面：手動頁（A3-3 復歸）" data-boxes='[[532,230,244,88,"A3-3 復歸流程"],[127,59,106,32,"急停 X0"],[460,59,106,32,"原點 X12"],[571,59,106,32,"治具水平 X5"],[144,364,116,24,"Y3/X5","r"]]'></div>
+<div class="shot" data-img="io" data-cap="HMI 畫面：IO 監視（A3-1 按下 EMO 時看這幾顆）" data-boxes='[[326,120,146,38,"Y0 紅燈","i"],[326,206,146,38,"Y2 蜂鳴","i"],[326,249,146,38,"Y3 治具停止","i"],[18,120,140,38,"X0","i"]]' data-legend="EMO 按下後強制會全部解除，畫面上方「強制中」會變回「無強制」。"></div>
+
+<h3>A4　啟動流程（一次按鈕，治具走兩點）</h3>
+<p>可以空打（拿掉螺絲），重點是看 PLC 與治具、RC75 的交握順序。<b>這一項要開側錄</b>（<code>--tag A4_START</code>）。</p>
+<table>
+<tr><th class="no">#</th><th>操作</th><th>預期</th><th class="ck">OK/NG</th></tr>
+<tr><td class="no">A4-1</td><td>回自動頁：手動頁再按一次「自動／手動切換」（手動模式燈熄）→ 回自動頁面</td><td>確認狀態列：X0、X10、X11、X12、X5 亮，X13、X6 不亮</td><td class="ck"></td></tr>
+<tr><td class="no">A4-2</td><td>自動頁按「啟動」</td><td>綠燈（Y1）開始閃 = 等啟動鍵</td><td class="ck"></td></tr>
+<tr><td class="no">A4-3</td><td>按 HMI 箱綠色啟動鍵（X7）一次</td><td>Y5 送出 → 治具移到點 01 → 約 3 秒後 Y12 → RC75 鎖第 1 點 → X12 熄再亮、X14 亮</td><td class="ck"></td></tr>
+<tr><td class="no">A4-4</td><td>不用按，等</td><td>PLC 自動再送 Y5 → 治具移到點 02 → 鎖第 2 點 → 再送 Y5 → 治具回水平（X5）→ 綠燈回到閃</td><td class="ck"></td></tr>
+<tr><td class="no">A4-5</td><td>停在哪裡就記哪裡</td><td>寫下最後看到的燈、治具位置、HMI 訊息</td><td class="ck"></td></tr>
+</table>
+<div class="note">目前治具沒有「到位」訊號給 PLC，程式是 Y5 送出後<b>固定等 3 秒</b>就開始鎖。治具 3 秒內沒到位就會鎖空 — 這次要記下治具實際要幾秒才到位。</div>
+
+<div class="shot" data-img="manual" data-cap="HMI 畫面：手動頁（A4-1 切回自動）" data-boxes='[[20,132,244,88,"A4-1 切回自動"],[16,59,106,32,"手動模式燈要熄"],[706,7,88,35,"回自動頁"]]'></div>
+<div class="shot" data-img="auto" data-cap="HMI 畫面：自動頁（A4-2）" data-boxes='[[10,318,110,60,"A4-2 啟動"],[746,6,50,36,"手動頁"]]' data-legend="自動頁的文字還是 v4 版（例如「治具夾好」＝現在的治具水平 X5），功能不影響。按「啟動」後等塔燈綠燈閃，再按 HMI 箱的實體綠色啟動鍵（X7）。"></div>
+
+<h2>2. 任務 B：RC75 基本點位</h2>
+<table>
+<tr><th class="no">#</th><th>操作（手動模式）</th><th>預期</th><th class="ck">OK/NG</th></tr>
+<tr><td class="no">B-1</td><td>靜止時看 IO 監視頁</td><td>X11 READY 亮、X12 原點亮、X13 ALARM 不亮、Y14 TABLE 1 一直亮</td><td class="ck"></td></tr>
+<tr><td class="no">B-2</td><td>手動頁「RC75 RESET」按住 1 秒</td><td>Y11 亮；RC75 面板異常清除</td><td class="ck"></td></tr>
+<tr><td class="no">B-3</td><td>手動頁「送螺絲」按住 1 秒</td><td>Y13 亮，送料器動作</td><td class="ck"></td></tr>
+<tr><td class="no">B-4</td><td>手動頁「單次鎖付」按一下（<code>--tag B4_SINGLE</code>）</td><td>Y12 0.5 秒 → X12 熄（Z 下降）→ X14 循環完成亮 → X12 再亮。<b>X17（締付 OK）有沒有亮</b>？</td><td class="ck"></td></tr>
+<tr><td class="no">B-5</td><td>拿掉螺絲再「單次鎖付」一次（空打）</td><td>這次 X17 應該<b>不亮</b>。如果還是亮，X17 可能接到 CHUCK TIP</td><td class="ck"></td></tr>
+<tr><td class="no">B-6</td><td>Z 不在原點時按「RC75 RETURN」按住</td><td>Y10 亮，Z 回原點後 X12 亮</td><td class="ck"></td></tr>
+<tr><td class="no">B-7</td><td>螺絲用完或讓 RC75 報異常（可做就做）</td><td>螺絲不足 X15 亮；異常 X13 亮；X16 蜂鳴</td><td class="ck"></td></tr>
+</table>
+
+<div class="shot" data-img="manual" data-cap="HMI 畫面：手動頁（任務 B 的按鈕）" data-boxes='[[276,132,244,88,"B-2 RESET"],[532,132,244,88,"B-6 RETURN"],[20,230,244,88,"B-3 送螺絲"],[276,230,244,88,"B-4/5 單次鎖付"],[349,59,106,32,"準備 X11"],[460,59,106,32,"原點 X12"]]'></div>
+<div class="shot" data-img="io" data-cap="HMI 畫面：IO 監視（任務 B 看這兩區）" data-boxes='[[164,163,140,296,"B 看 X11～X17","i"],[560,120,224,210,"Y10～Y14","i"]]' data-legend="X11 準備、X12 原點、X13 異常、X14 循環完成、X15 螺絲不足、X16 蜂鳴、X17 締付 OK；Y14 TABLE 1 應該一直亮。"></div>
+
+<h2>3. CSV 側錄（每一大項都要交）</h2>
+<ol>
+<li>筆電要裝 Python 3.8 以上（只用內建函式庫）。</li>
+<li>雙擊 <code>tools\io_rec.bat</code>，或在 tools 資料夾開命令列：<br>
+<code>python io_rec.py --tag A4_START</code></li>
+<li>開始後畫面每 2 秒會顯示「讀 n 次、寫 n 列、最後變化」。做完這一項按 <b>Ctrl+C</b> 停止。</li>
+<li>CSV 存在 <code>tools\csv\io_rec_日期時間_標籤.csv</code>，Excel 可直接開。每一列是一次變化：時間（毫秒）、哪個點變了（例如 <code>X7↑ Y5↑</code>）、全部 X/Y 的 0/1、步序 D100、第幾點 D222。</li>
+<li><b>注意</b>：PLC 只有一個 Modbus 連線，側錄時不要開其他 Modbus 工具（例如 io_grid）。GX Works3 監看與 HMI 不受影響。</li>
+<li>收工時把整個 <code>tools\csv</code> 資料夾連同測試紀錄表一起交回。</li>
+</ol>
+
+<h2>4. 異常時怎麼辦</h2>
+<table>
+<tr><th>狀況</th><th>處理</th></tr>
+<tr><td>任何危險、治具亂動</td><td>按 EMO。之後照 A3-3 按「復歸流程」。</td></tr>
+<tr><td>HMI 上的強制按鈕沒反應</td><td>確認是手動模式、停止中、EMO 放開；強制 30 秒（按住型 3 秒）會自動解除，是正常的。</td></tr>
+<tr><td>HMI 與 PLC 斷線</td><td>強制會在 2 秒內自動解除。檢查網路線、HMI 畫面右上角。</td></tr>
+<tr><td>測試做不下去，要還原舊程式</td><td>GX Works3 開 0-2 備份的 <code>PLC_backup_20261103.gx3</code> → Write to PLC → 關電再開。HMI 傳回 v4（<code>ScrewMachine_HMI_v4_ET6400WA.prxe</code>）。</td></tr>
+<tr><td>GX Works3 有用過「強制 I/O（Forced Input/Output）」</td><td>收工前 Debug → Register/Cancel Forced Input/Output → Cancel All Registrations。這個強制表 PLC 自己解不掉，急停也不會解除。</td></tr>
+</table>
+
+<div class="pb"></div>
+<h1>測試紀錄表（簡易測試報告）</h1>
+<div class="sub">日期：________　測試人員：________　治具工程：________　PLC 寫入時間：________　HMI 傳送時間：________</div>
+<table>
+<tr><th class="no">#</th><th>項目</th><th class="ck">OK</th><th class="ck">NG</th><th style="width:45%">看到什麼／秒數／備註</th><th style="width:18mm">CSV 檔名</th></tr>
+<tr><td class="no">0</td><td>備份、寫入 PLC、傳 HMI</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td></td><td></td></tr>
+<tr><td class="no">A1</td><td>治具／按鈕輸入點（X0 X1 X5 X6 X7 X10）</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td>X1 有沒有跟 X7 一起亮：</td><td></td></tr>
+<tr><td class="no">A2</td><td>輸出給治具（Y3 停止、Y5 啟動、Y4、塔燈）</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td>Y3 解除→X5 ON：____ 秒　Y5 第 3 次治具行為：</td><td></td></tr>
+<tr><td class="no">A3</td><td>EMO 停止、放開不動、復歸</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td>復歸總秒數：____ 秒</td><td></td></tr>
+<tr><td class="no">A4</td><td>啟動流程（兩點）</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td>治具到位實際要 ____ 秒；停在哪一步：</td><td></td></tr>
+<tr><td class="no">B1-3</td><td>RC75 靜止點位、RESET、送螺絲</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td></td><td></td></tr>
+<tr><td class="no">B4-5</td><td>單次鎖付、空打（X14、X17）</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td>正常鎖 X17：亮／不亮　空打 X17：亮／不亮</td><td></td></tr>
+<tr><td class="no">B6-7</td><td>RETURN、螺絲不足、異常</td><td class="ck"><span class="box"></span></td><td class="ck"><span class="box"></span></td><td></td><td></td></tr>
+</table>
+<h3>點位對照（實際接線和表上不同就寫在這）</h3>
+<table>
+<tr><th style="width:14mm">點</th><th>v3.2 名稱</th><th style="width:22mm">實測 OK</th><th style="width:45%">實際接到 / 備註</th></tr>
+<tr><td>X0</td><td>急停 EMO（ON＝正常）</td><td></td><td></td></tr>
+<tr><td>X1</td><td>未使用</td><td></td><td></td></tr>
+<tr><td>X3</td><td>靜電 NG</td><td></td><td></td></tr>
+<tr><td>X5</td><td>治具水平待命</td><td></td><td></td></tr>
+<tr><td>X6</td><td>治具停止／異常</td><td></td><td></td></tr>
+<tr><td>X7</td><td>啟動鍵（綠）</td><td></td><td></td></tr>
+<tr><td>X10</td><td>安全光柵（ON＝沒遮）</td><td></td><td></td></tr>
+<tr><td>X11～X17</td><td>RC75 READY／原點／ALARM／循環完成／螺絲不足／蜂鳴／締付 OK</td><td></td><td></td></tr>
+<tr><td>Y0／Y1／Y2</td><td>塔燈紅／綠／蜂鳴器</td><td></td><td></td></tr>
+<tr><td>Y3</td><td>治具停止（保持）</td><td></td><td></td></tr>
+<tr><td>Y4</td><td>螺絲機在安全位置（= X12）</td><td></td><td></td></tr>
+<tr><td>Y5</td><td>治具啟動／前進（0.5 秒脈衝）</td><td></td><td></td></tr>
+<tr><td>Y10～Y14</td><td>RC75 RETURN／RESET／START／送螺絲／TABLE 1</td><td></td><td></td></tr>
+</table>
+<h3>其他發現</h3>
+<div style="border:1px solid #999;height:38mm"></div>
+<p style="margin-top:4mm">測試人員簽名：______________　　主管確認：______________</p>
+</body></html>
