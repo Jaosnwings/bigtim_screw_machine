@@ -54,7 +54,7 @@ CASE D110 OF
     IF M5 THEN
         D110 := 0;
     ELSIF D501 >= D217 THEN
-        M157 := TRUE;   (* 治具歸位逾時，Y3 重新 ON（M203） *)
+        M157 := TRUE;   (* 治具歸位逾時（v3.06 起不再讓 Y3 ON） *)
         D110 := 0;
     END_IF;
 ELSE
@@ -98,6 +98,12 @@ IF M932 THEN
     END_IF;
 END_IF;
 
+(* ---- 上電 Y3 脈衝 1 秒（11-11 現場：上電時送 Y3 讓治具復歸） ---- *)
+IF M860 THEN
+    IF M950 AND (D542 < 32000) THEN D542 := D542 + 1; END_IF;
+    IF D542 >= 10 THEN M860 := FALSE; END_IF;
+END_IF;
+
 (* ---- 內部輸出線圈 M400~M415（P70 加上 HMI 強制後轉成 Y） ---- *)
 (* 塔燈只有紅綠：紅恆亮 = 停機異常；紅閃 = 警告。綠閃 = 待機等啟動；綠恆亮 = 加工中 *)
 IF M120 THEN M121 := TRUE; END_IF;
@@ -105,11 +111,14 @@ IF NOT (M203 OR M154) THEN M121 := FALSE; END_IF;
 M400 := M203 OR M154 OR (M204 AND SM412);                                   (* Y0 塔燈紅 *)
 M401 := M200 AND NOT M203 AND (((D100 = 10) AND SM412) OR (D100 >= 12));    (* Y1 塔燈綠 *)
 M402 := (M203 OR M154) AND NOT M121;                                        (* Y2 蜂鳴器 *)
-M403 := NOT M0 OR M203 OR M841 OR ((D110 >= 1) AND (D110 <= 4)) OR M845
-        OR (M201 AND M850);                                                 (* Y3 治具停止（保持） *)
+(* Y3 治具停止：11-11 現場要求「跟著急停」——急停按下 ON、放開就 OFF，不再保持。
+   異常（M203）、急停保持（M841）、復歸步 1~4 都不再讓 Y3 ON；Z 不在原點時靠 Y4 OFF 擋治具。
+   保留：光柵暫停 M845、手動切換 M850、上電 1 秒脈衝 M860 *)
+M403 := NOT M0 OR M845 OR (M201 AND M850) OR M860;
 M404 := M0 AND M12 AND NOT M13;                                             (* Y4 螺絲機在安全位置 *)
 M405 := (M200 AND ((D100 = 15) OR (D100 = 60)) AND (D500 < D235) AND NOT M845
-         AND M0 AND M12 AND NOT M203) OR M852;                              (* Y5 治具啟動／前進 *)
+         AND M0 AND M12 AND NOT M203) OR M852
+        OR (M7 AND M0);                                                     (* Y5 治具啟動／前進；v3.07（11-11 現場）：X1 啟動鈕按著 Y5 就 ON、放開 OFF（只看急停） *)
 M406 := M400;                                                               (* Y6 預留：過渡期同紅燈 *)
 M407 := FALSE;                                                              (* Y7 預留 *)
 M410 := ((D110 = 3) AND NOT M12) OR (M201 AND M110 AND M0);                 (* Y10 RC75 RETURN *)
