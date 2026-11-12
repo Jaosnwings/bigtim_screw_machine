@@ -18,6 +18,22 @@
 | 產生器自我檢查 | Python 版解析：範例 A／B 解出值正確、錯誤訊框被丟；HI 40、ST 137、SC 51 位元組（含 CR LF）與協定長度相符 |
 | fake_host.py | 在 clawnest 用假 PLC 連線測過：每秒 HO（98 字元）、`t` 送 TG、`b 1` 切換位元後 b=0002、HI／ST 解析與 sw 位元顯示正確 |
 
+## 與中控 car_light_system main（PR #53）的協定一致性（2026-11-12 16:47，clawnest）
+用 main 的 `modbus/socket_frame.py`、`socket_plc_sim.py` 對這邊的 PLC 解析模型（`tools/gen_sock_st.py` 的 `py_parse_ho`）與 `tools/fake_host.py` 互測：
+
+| 項目 | 結果 |
+|---|---|
+| 中控 `build_ho`（hb=40000、b=8013、序號／工單／工號、校時）→ PLC 解析 | 98 字元；30 個暫存器值全部相同（M2091 OFF = 中控預設高位元組先） ✅ |
+| 中控 ts 全 0 | PLC 不改 D7024～D7029 ✅ |
+| 協定範例 ST → 中控 `parse_st` | 135 字元，15 個欄位全部解出 ✅ |
+| HI → 中控 `parse_hi` | st=2、eq=MC-D002、ver=314、proto=1 ✅ |
+| SC → 中控 `parse_sc` | 條碼／NoRead 都正確 ✅ |
+| 條碼內含 `;` 或 `=` | **中控解析會截斷**（`A;B=C` 只剩 `A`）。已修 PLC：收條碼時把 `;`、`=` 換成空白，跟中控 `_clean` 一樣 |
+| main 的模擬 PLC ↔ fake_host.py | HI 38、ST 135、SC 49 字元；hb 照回；b 的 B00=1 後 sw 出現 B08（Remote）；TG → SC ✅ |
+| 逾時 | 中控等 HI 5 秒（PLC 連上後下一個掃描就送 HI）；中控等 SC 4 秒、PLC 讀 SICK 3 秒逾時 ✅ |
+
+注意：中控把 ang 放進 16 位元的「圈數」欄，超過 65535 會被截在 65535（PLC 送 8 碼）。
+
 ## 拿到權限後的步驟
 1. 開 `ScrewMachine_v3_2.gx3` → 另存 `ScrewMachine_v3_14.gx3`。
 2. Scan 下新增 ST 程式 P16_Sock、P76_Sock_Out，貼上 `PLC_v3_14/` 對應檔；P00、P15、P75 換成 `PLC_v3_14/` 版本。

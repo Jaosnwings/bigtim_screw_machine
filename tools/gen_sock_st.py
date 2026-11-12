@@ -494,6 +494,7 @@ K4M2256 := SD10682;
     b.append("            IF M2299 THEN M2301 := TRUE;  M2299 := FALSE; END_IF;")
     b.append("        ELSIF (D2316 >= 32) AND (D2316 <= 126) THEN")
     b.append("            M2299 := TRUE;")
+    b.append("            IF (D2316 = 59) OR (D2316 = 61) THEN D2316 := 32; END_IF;   (* ';' '=' 會破壞 SC 訊框，換成空白（同中控 _clean） *)")
     b.append("            IF D2312 < 32 THEN")
     b.append("                Z3 := D2312;")
     b.append(f"                D{BC}Z3 := D2316;")

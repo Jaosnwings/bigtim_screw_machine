@@ -779,6 +779,7 @@ IF M2354 THEN
                 IF M2299 THEN M2301 := TRUE;  M2299 := FALSE; END_IF;
             ELSIF (D2316 >= 32) AND (D2316 <= 126) THEN
                 M2299 := TRUE;
+                IF (D2316 = 59) OR (D2316 = 61) THEN D2316 := 32; END_IF;   (* ';' '=' 會破壞 SC 訊框，換成空白（同中控 _clean） *)
                 IF D2312 < 32 THEN
                     Z3 := D2312;
                     D6500Z3 := D2316;
