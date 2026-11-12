@@ -17,7 +17,8 @@
          （n1 開啟失敗 n2 送出失敗 n3 接收失敗 14 HO 逾時 n5 對方關閉，n = 連線號碼） D7173 HI 送出 D7174 最後條碼長度
    模擬測試（GX Simulator3 不能跑 socket）：M50 模擬模式 + M2235 ON → M2236，不執行 socket 指令、連線直接當作已連上；
      M2238 載入 HO 範例 A、M2185 範例 B（hb=40000、b 含小寫、ts 全 0）、M2189 兩筆錯誤、M2188/M2187 範例 A 分兩段、
-     M2184 TG + 範例 B 同一包、M2239 TG；M2186 模擬 SICK 回條碼。送出的字串留在 D6800（長度）D6801~（D6600~ 每字 1 字元）。
+     M2184 TG + 範例 B 同一包、M2239 TG；M2186 模擬 SICK 回條碼；M2182 ON = 模擬測試時也計 HO 5 秒逾時（預設不計）。
+     開啟中超過 10 秒沒完成當作開啟失敗（D7172 = n1）；開啟中改回 Modbus 會先關閉，進入模擬測試直接回 0。送出的字串留在 D6800（長度）D6801~（D6600~ 每字 1 字元）。
    ============================================================ *)
 
 (* ---- 生效傳輸 ---- *)
@@ -63,12 +64,23 @@ CASE D7160 OF
             D2261 := 0;  D7160 := 2;
             M2230 := TRUE;   (* 連上後送一次 HI *)
         END_IF;
+    ELSIF M2236 THEN
+        D2261 := 0;  D7160 := 0;   (* 進入模擬測試：直接回未連線（模擬器的 SOCOPEN 不會完成） *)
+    ELSIF NOT M2190 THEN
+        M2211 := TRUE;  D2261 := 0;  D7160 := 3;   (* 改回 Modbus：關閉後經 4 回 0 *)
+    ELSE
+        IF M950 THEN D2261 := D2261 + 1; END_IF;
+        IF D2261 >= 100 THEN   (* 10 秒沒完成：當作開啟失敗 *)
+            D7172 := 11;
+            M2211 := TRUE;  D2261 := 0;  D7160 := 3;
+        END_IF;
     END_IF;
 2:  (* 已連線 *)
     IF M950 AND (D2261 < 32000) THEN D2261 := D2261 + 1; END_IF;
     IF M2190 AND NOT M2236 AND NOT M2240 THEN D7172 := 15; END_IF;   (* 對方關閉 *)
-    IF D2261 >= 50 THEN D7172 := 14; END_IF;   (* 5 秒沒收到 HO *)
-    IF NOT M2190 OR (NOT M2236 AND NOT M2240) OR M2307 OR (D2261 >= 50) THEN
+    M2183 := (D2261 >= 50) AND (NOT M2236 OR M2182);   (* 5 秒沒收到 HO；模擬測試時要 M2182 ON 才計 *)
+    IF M2183 THEN D7172 := 14; END_IF;
+    IF NOT M2190 OR (NOT M2236 AND NOT M2240) OR M2307 OR M2183 THEN
         M2307 := FALSE;  D2261 := 0;
         IF M2236 THEN D7160 := 4; ELSE M2211 := TRUE;  D7160 := 3; END_IF;
     END_IF;
@@ -83,9 +95,9 @@ ELSE
     D7160 := 0;
 END_CASE;
 IF (D7160 = 2) AND NOT M2236 AND M2256 AND NOT M2212 THEN M2213 := TRUE;  M2212 := TRUE; END_IF;
-SP_SOCOPEN(M2209, U0, 1, D2200, M2200);
-SP_SOCCLOSE(M2211, U0, 1, D2210, M2202);
-SP_SOCRCV(M2213, U0, 1, D2214, D3000, M2206);
+SP_SOCOPEN(M2209, 'U0', 1, D2200, M2200);
+SP_SOCCLOSE(M2211, 'U0', 1, D2210, M2202);
+SP_SOCRCV(M2213, 'U0', 1, D2214, D3000, M2206);
 IF M2206 THEN
     M2212 := FALSE;
     IF M2207 THEN D7163 := D2215;  D7172 := 13; ELSE M2215 := TRUE; END_IF;
@@ -665,6 +677,16 @@ CASE D7164 OF
         ELSE
             D2300 := 0;  D7164 := 2;
         END_IF;
+    ELSIF M2236 THEN
+        D2300 := 0;  D7164 := 0;   (* 進入模擬測試：直接回未連線（模擬器的 SOCOPEN 不會完成） *)
+    ELSIF NOT (M2190 AND M2198) THEN
+        M2329 := TRUE;  D2300 := 0;  D7164 := 3;   (* 改回 Modbus：關閉後經 4 回 0 *)
+    ELSE
+        IF M950 THEN D2300 := D2300 + 1; END_IF;
+        IF D2300 >= 100 THEN   (* 10 秒沒完成：當作開啟失敗 *)
+            D7172 := 21;
+            M2329 := TRUE;  D2300 := 0;  D7164 := 3;
+        END_IF;
     END_IF;
 2:  (* 已連線 *)
     IF M950 AND (D2300 < 32000) THEN D2300 := D2300 + 1; END_IF;
@@ -684,9 +706,9 @@ ELSE
     D7164 := 0;
 END_CASE;
 IF (D7164 = 2) AND NOT M2236 AND M2257 AND NOT M2332 THEN M2331 := TRUE;  M2332 := TRUE; END_IF;
-SP_SOCOPEN(M2328, U0, 2, D2220, M2320);
-SP_SOCCLOSE(M2329, U0, 2, D2230, M2322);
-SP_SOCRCV(M2331, U0, 2, D2234, D4300, M2326);
+SP_SOCOPEN(M2328, 'U0', 2, D2220, M2320);
+SP_SOCCLOSE(M2329, 'U0', 2, D2230, M2322);
+SP_SOCRCV(M2331, 'U0', 2, D2234, D4300, M2326);
 IF M2326 THEN
     M2332 := FALSE;
     IF M2327 THEN D7163 := D2235;  D7172 := 23; ELSE M2334 := TRUE; END_IF;
@@ -720,6 +742,16 @@ CASE D7165 OF
         ELSE
             D2301 := 0;  D7165 := 2;
         END_IF;
+    ELSIF M2236 THEN
+        D2301 := 0;  D7165 := 0;   (* 進入模擬測試：直接回未連線（模擬器的 SOCOPEN 不會完成） *)
+    ELSIF NOT M2190 THEN
+        M2349 := TRUE;  D2301 := 0;  D7165 := 3;   (* 改回 Modbus：關閉後經 4 回 0 *)
+    ELSE
+        IF M950 THEN D2301 := D2301 + 1; END_IF;
+        IF D2301 >= 100 THEN   (* 10 秒沒完成：當作開啟失敗 *)
+            D7172 := 31;
+            M2349 := TRUE;  D2301 := 0;  D7165 := 3;
+        END_IF;
     END_IF;
 2:  (* 已連線 *)
     IF M950 AND (D2301 < 32000) THEN D2301 := D2301 + 1; END_IF;
@@ -739,9 +771,9 @@ ELSE
     D7165 := 0;
 END_CASE;
 IF (D7165 = 2) AND NOT M2236 AND M2258 AND NOT M2352 THEN M2351 := TRUE;  M2352 := TRUE; END_IF;
-SP_SOCOPEN(M2348, U0, 3, D2240, M2340);
-SP_SOCCLOSE(M2349, U0, 3, D2250, M2342);
-SP_SOCRCV(M2351, U0, 3, D2254, D5400, M2346);
+SP_SOCOPEN(M2348, 'U0', 3, D2240, M2340);
+SP_SOCCLOSE(M2349, 'U0', 3, D2250, M2342);
+SP_SOCRCV(M2351, 'U0', 3, D2254, D5400, M2346);
 IF M2346 THEN
     M2352 := FALSE;
     IF M2347 THEN D7163 := D2255;  D7172 := 33; ELSE M2354 := TRUE; END_IF;
@@ -894,8 +926,8 @@ IF M2300 OR M2302 THEN
 END_IF;
 IF D7164 <> 2 THEN M2333 := FALSE; END_IF;
 IF D7165 <> 2 THEN M2353 := FALSE; END_IF;
-SP_SOCSND(M2330, U0, 2, D2232, D6900, M2324);
-SP_SOCSND(M2350, U0, 3, D2252, D6950, M2344);
+SP_SOCSND(M2330, 'U0', 2, D2232, D6900, M2324);
+SP_SOCSND(M2350, 'U0', 3, D2252, D6950, M2344);
 IF M2324 THEN
     M2333 := FALSE;
     IF M2325 THEN D7163 := D2233;  D7172 := 22;  M2308 := TRUE; END_IF;

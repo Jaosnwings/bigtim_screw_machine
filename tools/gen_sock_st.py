@@ -12,7 +12,7 @@ U0 參數寫法若 GX Works3 不收，改 U0_TOKEN。
 import os
 import sys
 
-U0_TOKEN = "U0"
+U0_TOKEN = "'U0'"
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "PLC_v3_14")
 
@@ -298,6 +298,16 @@ def conn_block(n, st, tmr, en_open, en_close, en_recv, ready, rbusy,
     L.append(f"            {tmr} := 0;  {st} := 2;")
     L += ind(on_connect, 12)
     L.append(f"        END_IF;")
+    L.append(f"    ELSIF M2236 THEN")
+    L.append(f"        {tmr} := 0;  {st} := 0;   (* 進入模擬測試：直接回未連線（模擬器的 SOCOPEN 不會完成） *)")
+    L.append(f"    ELSIF NOT {enable} THEN")
+    L.append(f"        {en_close} := TRUE;  {tmr} := 0;  {st} := 3;   (* 改回 Modbus：關閉後經 4 回 0 *)")
+    L.append(f"    ELSE")
+    L.append(f"        IF M950 THEN {tmr} := {tmr} + 1; END_IF;")
+    L.append(f"        IF {tmr} >= 100 THEN   (* 10 秒沒完成：當作開啟失敗 *)")
+    L.append(f"            D7172 := {n * 10 + 1};")
+    L.append(f"            {en_close} := TRUE;  {tmr} := 0;  {st} := 3;")
+    L.append(f"        END_IF;")
     L.append(f"    END_IF;")
     L.append(f"2:  (* 已連線 *)")
     L.append(f"    IF M950 AND ({tmr} < 32000) THEN {tmr} := {tmr} + 1; END_IF;")
@@ -353,7 +363,8 @@ def gen_p16():
          （n1 開啟失敗 n2 送出失敗 n3 接收失敗 14 HO 逾時 n5 對方關閉，n = 連線號碼） D7173 HI 送出 D7174 最後條碼長度
    模擬測試（GX Simulator3 不能跑 socket）：M50 模擬模式 + M2235 ON → M2236，不執行 socket 指令、連線直接當作已連上；
      M2238 載入 HO 範例 A、M2185 範例 B（hb=40000、b 含小寫、ts 全 0）、M2189 兩筆錯誤、M2188/M2187 範例 A 分兩段、
-     M2184 TG + 範例 B 同一包、M2239 TG；M2186 模擬 SICK 回條碼。送出的字串留在 D6800（長度）D6801~（D6600~ 每字 1 字元）。
+     M2184 TG + 範例 B 同一包、M2239 TG；M2186 模擬 SICK 回條碼；M2182 ON = 模擬測試時也計 HO 5 秒逾時（預設不計）。
+     開啟中超過 10 秒沒完成當作開啟失敗（D7172 = n1）；開啟中改回 Modbus 會先關閉，進入模擬測試直接回 0。送出的字串留在 D6800（長度）D6801~（D6600~ 每字 1 字元）。
    ============================================================ *)
 """.splitlines()
 
@@ -375,7 +386,8 @@ K4M2256 := SD10682;
                     "M2200", "M2202", "M2206", "D2200", "D2210", "D2214", "D3000",
                     "M2240", "M2256", "M2190", 243, "D247", 4001,
                     ["M2230 := TRUE;   (* 連上後送一次 HI *)"],
-                    (" OR (D2261 >= 50)", ["IF D2261 >= 50 THEN D7172 := 14; END_IF;   (* 5 秒沒收到 HO *)"]),
+                    (" OR M2183", ["M2183 := (D2261 >= 50) AND (NOT M2236 OR M2182);   (* 5 秒沒收到 HO；模擬測試時要 M2182 ON 才計 *)",
+                                   "IF M2183 THEN D7172 := 14; END_IF;"]),
                     "M2307")
     L.append("D7170 := D2261;")
 
