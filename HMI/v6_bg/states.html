@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>state</title>
+<link rel="stylesheet" href="common.css">
+<style>html,body{background:transparent} #scr{width:auto;height:auto}</style></head>
+<body><div id="scr"></div>
+<script src="common.js"></script>
+<script>
+// v6 首頁狀態圖：bg_home 畫的是「未完成／預設」外觀，這裡每一張是條件成立時要蓋上去的狀態。
+// 尺寸與座標見 home_parts.md；GP-Pro EX 用圖片零件疊在同座標，依位元／字元顯示。
+// 項目：id: [w, h, 種類, 文字, 選項]
+const N = (t) => [678, 56, 'text', t, { bg: 'CR', fg: 'TX', fs: 32, css: 'justify-content:center;border:1px solid #888' }];
+const S = {
+  // N1 下一步（D2053）
+  n_100: N('按「啟動」開始自動運轉'),
+  n_101: N('急停中：放開急停後按「復歸」'),
+  n_102: N('光柵被遮住：請離開光柵範圍'),
+  n_103: N('鎖付機未就緒：等 RC75 READY'),
+  n_104: N('Z 軸不在原點：請按「復歸」'),
+  n_105: N('鎖付機異常：排除後按「復歸」'),
+  n_106: N('治具不在水平：請按「復歸」讓治具歸位'),
+  n_107: N('治具停止中：請解除治具停止'),
+  n_108: N('有異常未復歸：請按「復歸」'),
+  n_109: N('目前是手動模式：請切回自動'),
+  n_110: N('請按「復歸」完成復歸'),
+  n_111: N('IO 強制中：請先解除強制'),
+  n_20: N('運轉中'),
+  n_21: N('放好產品後，按綠色啟動鍵'),
+  n_22: N('等中控放行（看系統訊息）'),
+  n_23: N('治具移動中，請勿伸手'),
+  n_24: N('開始鎖付'),
+  n_25: N('鎖付中，請勿靠近'),
+  n_26: N('等治具回到水平'),
+  n_27: N('光柵遮斷暫停：請離開光柵'),
+  n_31: N('請刷工號'),
+  n_32: N('靜電未通過：請確認靜電環'),
+  n_40: N('本件 NG：取出產品放到不良品區'),
+  n_41: N('本件 OK：取出產品'),
+  // 步驟燈 36×36
+  p_done: [36, 36, 'lamp', '✓', { bg: 'G1', fs: 24 }],
+  p_busy: [36, 36, 'lamp', '●', { bg: 'AM', fg: 'TX', fs: 20 }],
+  p_ng:   [36, 36, 'lamp', '✕', { bg: 'R1', fs: 22 }],
+  // 區塊
+  b2_on:  [154, 26, 'lamp', '已登入', { bg: 'G1', fs: 15 }],
+  b4_ok:  [114, 56, 'lamp', '靜電 OK', { bg: 'G1', fs: 22 }],
+  b4_ng:  [114, 56, 'lamp', '靜電 NG', { bg: 'R1', fs: 22 }],
+  b5_on:  [114, 28, 'lamp', '檢查：啟用', { bg: 'SL', fs: 14 }],
+  b9_on:  [204, 24, 'lamp', '中控已放行', { bg: 'G1', fs: 15 }],
+  b12_ok: [80, 56, 'lamp', 'OK', { bg: 'G1', fs: 30 }],
+  b12_ng: [80, 56, 'lamp', 'NG', { bg: 'R1', fs: 30 }],
+  b13_ok: [72, 30, 'lamp', '扭力 OK', { bg: 'G1', fs: 14 }],
+  b13_ng: [72, 30, 'lamp', '扭力 NG', { bg: 'R1', fs: 14 }],
+  b14_ok: [72, 30, 'lamp', '角度 OK', { bg: 'G1', fs: 14 }],
+  b14_ng: [72, 30, 'lamp', '角度 NG', { bg: 'R1', fs: 14 }],
+  b15_ok: [72, 30, 'lamp', '高度 OK', { bg: 'G1', fs: 14 }],
+  b15_ng: [72, 30, 'lamp', '高度 NG', { bg: 'R1', fs: 14 }],
+};
+const id = location.search.slice(1);
+const [w, h, kind, text, o] = S[id];
+document.getElementById('scr').style.cssText = `width:${w}px;height:${h}px`;
+render([[0, 0, w, h, kind, text, o]]);
+document.querySelector('.frame').remove();
+window.STATE_IDS = Object.keys(S);
+</script></body></html>
