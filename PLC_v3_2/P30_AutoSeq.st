@@ -1,7 +1,7 @@
 (* ============================================================
    P30_AutoSeq  自動步序 D100  v3.2（一循環鎖 D221 點，預設 2）
    0 停止 / 10 待機啟動（等 X7）/ 12 中控開始交握 / 14 等中控放行 /
-   15 治具移到第 n 點（Y5 脈衝，等 D234）/ 30 啟動鎖付（Y12，等 X12 OFF）/ 40 鎖付中 /
+   15 等治具到第 n 點（X7 到位）/ 20 螺絲上膛確認（X15，沒上膛送 Y13）/ 30 啟動鎖付（Y12，等 X12 OFF）/ 40 鎖付中 /
    50 判定 / 56 分流（下一點或結束）/ 60 等治具回水平（Y5 脈衝，等 X5）
    v3.2 與 v3.1 的差別：
      - 啟動改由 X7（HMI 箱綠鍵）上升沿，自動啟動 M100 只讓機台進入待機
@@ -63,13 +63,13 @@ CASE D100 OF
     D222 := 0;
     IF M200 THEN D100 := 10; END_IF;
 
-10: (* 待機啟動：綠燈閃，等啟動鈕 X7 *)
+10: (* 待機啟動：綠燈閃，等啟動鈕 X1（M7） *)
     D222 := 0;
     IF M301 THEN
         M200 := FALSE;
         M301 := FALSE;
         D100 := 0;
-    ELSIF M36 AND M202 AND NOT M15 AND M2062 AND NOT M2113 AND (D500 >= 5)
+    ELSIF M36 AND M202 AND M2062 AND NOT M2113 AND (D500 >= 5)
           AND (NOT M2051 OR (NOT M2034 AND NOT M2035)) THEN   (* Remote：上一次的 ACK 都已歸 0 *)
         D222 := 1;
         D502 := 0;
@@ -105,11 +105,20 @@ CASE D100 OF
         D100 := 10;
     END_IF;
 
-15: (* 治具移到第 D222 點：P40 在本步開頭送 Y5 脈衝 D235；沒有到位訊號，等 D234（測試暫定） *)
-    IF (D500 >= D234) AND NOT M6 AND M11 AND M12 AND NOT M13 THEN
+15: (* v3.12 等治具到第 D222 點：X7 到位 ON 0.2 秒（且上一點之後 X7 OFF 過）；Y5 只跟啟動鈕 X1，第 2 點治具自己轉 *)
+    IF M940 AND M937 AND NOT M6 AND M11 AND M12 AND NOT M13 AND (D543 >= 2) THEN   (* v3.09：TABLE 訊號穩定 0.2 秒 *)
+        M937 := FALSE;
+        M941 := NOT M15;   (* 沒上膛 → 步 20 先送螺絲 *)
+        D100 := 20;
+    ELSIF D500 >= D217 THEN
+        M143 := TRUE;   (* 治具一直沒到位（X7）→ 啟動逾時 *)
+    END_IF;
+
+20: (* v3.12 螺絲上膛確認：X15 已 ON 直接鎖；沒上膛 → Y13 送螺絲 0.5 秒（P40），等 X15 ON 且 READY X11 回來（v3.13），3.0 秒逾時 M147 *)
+    IF M15 AND M11 AND M12 AND NOT M13 AND (NOT M941 OR (D500 >= 5)) THEN   (* v3.13：送螺絲後要等 RC75 READY 回來 *)
         D100 := 30;
-    ELSIF D500 >= D234 + D210 THEN
-        M143 := TRUE;   (* 時間到了 RC75 仍沒準備好 → 啟動逾時 *)
+    ELSIF D500 >= 30 THEN
+        M147 := TRUE;   (* 送螺絲後沒上膛 *)
     END_IF;
 
 30: (* 送 CYCLE START 脈衝 D225（P40），等 Z 離開原點 X12 OFF ≥ 0.1 秒 *)
@@ -166,7 +175,7 @@ CASE D100 OF
         END_IF;
     END_IF;
 
-60: (* 等治具回水平：P40 在本步開頭再送一次 Y5（Q-B 暫定），等 X5 ON ≥ 0.3 秒且 Z 在原點 *)
+60: (* 等治具回水平：v3.12 不再送 Y5（治具自己回），等 X5 ON ≥ 0.3 秒且 Z 在原點 *)
     IF (D500 >= D235 + 3) AND M5 AND M12 THEN
         IF M301 OR M104 THEN
             M200 := FALSE;
@@ -187,7 +196,7 @@ END_CASE;
 IF M845 THEN D2051 := 7;
 ELSIF D100 = 10 THEN D2051 := 1;
 ELSIF (D100 = 12) OR (D100 = 14) THEN D2051 := 2;
-ELSIF D100 = 15 THEN D2051 := 3;
+ELSIF (D100 = 15) OR (D100 = 20) THEN D2051 := 3;
 ELSIF D100 = 30 THEN D2051 := 4;
 ELSIF D100 = 40 THEN D2051 := 5;
 ELSIF D100 = 60 THEN D2051 := 6;

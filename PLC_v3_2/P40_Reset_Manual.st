@@ -83,18 +83,82 @@ IF M852 THEN
     IF (D536 >= D235) OR NOT M201 OR NOT M0 THEN M852 := FALSE; END_IF;
 END_IF;
 
-(* ---- 手動：單次鎖付 = Y12 脈衝 D225，X12 OFF 視為已啟動，X12 回 ON 結束 ---- *)
+(* ---- 手動：單次鎖付（v3.11）＋ 手動兩點流程（v3.12，11-11 現場要求）----
+   開始條件：手動、急停正常、光柵、RC75 READY、原點、無 ALARM（和強制 Y12 一樣，不看停機異常鎖存 M203）
+   觸發：a) HMI「單次鎖付」M113；b) v3.12 手動兩點：按啟動鈕 X1（Y5 ON）→ D546 = 1，
+         之後每次 X7 治具到位（M940，且之前 X7 OFF 過 M937）自動鎖一點；第 1 點鎖完 D546 = 2（TABLE 2），第 2 點鎖完 D546 = 0
+   1. 先看 X15 螺絲上膛：已上膛直接鎖；沒上膛 → Y13 送螺絲脈衝 0.5 秒，等 X15 ON（最多 3.0 秒，逾時放棄、D544 = 9）
+   2. Y12 脈衝 D225，X12 OFF 視為已啟動，X12 回 ON 結束；D211 逾時
+   D544 = 單次鎖付步序（0 待命 1 送螺絲 2 鎖付中 9 送螺絲逾時）；D545 = 送螺絲計時 (0.1s)；M934 = 送螺絲中
+   D546 = 手動兩點流程目前第幾點（0 沒有在跑）；M938 = 這一次是 X7 觸發的；M939 = 本掃描開始一次鎖付 *)
 M930 := M113 AND NOT M931;  M931 := M113;
-IF M201 AND M930 AND M0 AND M10 AND M11 AND M12 AND NOT M13 AND NOT M203 THEN
-    M932 := TRUE;
-    M933 := FALSE;
-    D535 := 0;
+IF M201 AND NOT M200 AND M36 THEN D546 := 1; END_IF;
+IF NOT M201 OR M200 THEN
+    D546 := 0;
+    M938 := FALSE;
+END_IF;
+M939 := FALSE;
+IF M201 AND NOT M200 AND M0 AND M10 AND M11 AND M12 AND NOT M13 AND NOT M932 AND NOT M934 THEN
+    IF ((D546 = 1) OR (D546 = 2)) AND M940 AND M937 THEN
+        M937 := FALSE;
+        M938 := TRUE;
+        M939 := TRUE;
+    ELSIF M930 THEN
+        M938 := FALSE;
+        M939 := TRUE;
+    END_IF;
+END_IF;
+IF M939 THEN
+    IF M15 THEN
+        M932 := TRUE;
+        M933 := FALSE;
+        D535 := 0;
+        D544 := 2;
+    ELSE
+        M934 := TRUE;
+        D545 := 0;
+        D544 := 1;
+    END_IF;
+END_IF;
+IF M934 THEN
+    IF M950 AND (D545 < 32000) THEN D545 := D545 + 1; END_IF;
+    IF NOT M201 OR NOT M0 THEN
+        M934 := FALSE;
+        M938 := FALSE;
+        D546 := 0;
+        D544 := 0;
+    ELSIF M15 AND M11 AND M12 AND NOT M13 AND (D545 >= 5) THEN   (* v3.13：送完 0.5 秒、已上膛且 RC75 READY 回來 → 鎖付 *)
+        M934 := FALSE;
+        M932 := TRUE;
+        M933 := FALSE;
+        D535 := 0;
+        D544 := 2;
+    ELSIF D545 >= 30 THEN               (* 3.0 秒還沒上膛或 READY 沒回來 → 放棄，兩點流程也結束 *)
+        M934 := FALSE;
+        M938 := FALSE;
+        D546 := 0;
+        D544 := 9;
+    END_IF;
 END_IF;
 IF M932 THEN
     IF M950 AND (D535 < 32000) THEN D535 := D535 + 1; END_IF;
     IF NOT M12 THEN M933 := TRUE; END_IF;
-    IF (M933 AND M12) OR (D535 >= D211) OR NOT M201 OR M203 OR NOT M0 THEN
+    IF M933 AND M12 THEN                 (* 正常結束 *)
         M932 := FALSE;
+        D544 := 0;
+        IF M938 THEN
+            M938 := FALSE;
+            IF (D546 = 1) AND (D221 >= 2) THEN
+                D546 := 2;               (* 換 TABLE 2，等治具轉到第 2 點（X7） *)
+            ELSE
+                D546 := 0;
+            END_IF;
+        END_IF;
+    ELSIF (D535 >= D211) OR NOT M201 OR NOT M0 THEN
+        M932 := FALSE;
+        M938 := FALSE;
+        D546 := 0;
+        D544 := 0;
     END_IF;
 END_IF;
 
@@ -116,15 +180,23 @@ M402 := (M203 OR M154) AND NOT M121;                                        (* Y
    保留：光柵暫停 M845、手動切換 M850、上電 1 秒脈衝 M860 *)
 M403 := NOT M0 OR M845 OR (M201 AND M850) OR M860;
 M404 := M0 AND M12 AND NOT M13;                                             (* Y4 螺絲機在安全位置 *)
-M405 := (M200 AND ((D100 = 15) OR (D100 = 60)) AND (D500 < D235) AND NOT M845
-         AND M0 AND M12 AND NOT M203) OR M852
-        OR (M7 AND M0);                                                     (* Y5 治具啟動／前進；v3.07（11-11 現場）：X1 啟動鈕按著 Y5 就 ON、放開 OFF（只看急停） *)
+M405 := M852 OR (M7 AND M0);                                               (* Y5 治具啟動：X1 啟動鈕按著就 ON（v3.07）；手動 Y5 鈕；v3.12 自動不再自己送 Y5 *)
 M406 := M400;                                                               (* Y6 預留：過渡期同紅燈 *)
 M407 := FALSE;                                                              (* Y7 預留 *)
 M410 := ((D110 = 3) AND NOT M12) OR (M201 AND M110 AND M0);                 (* Y10 RC75 RETURN *)
 M411 := (D110 = 1) OR M844 OR (M201 AND M111 AND M0);                       (* Y11 RC75 RESET *)
 M412 := (((D100 = 30) AND (D500 < D225)) OR (M932 AND (D535 < D225)))
-        AND M0 AND NOT M410 AND NOT M413;                                   (* Y12 CYCLE START *)
-M413 := M201 AND M112 AND M0 AND M11;                                       (* Y13 RC75 送螺絲 *)
-M414 := (D200 = 1);                                                         (* Y14 TABLE 1 常 ON *)
-M415 := FALSE;                                                              (* Y15 TABLE 2 未接 *)
+        AND M0 AND NOT M410 AND NOT M413 AND (D543 >= 2);                                   (* Y12 CYCLE START（TABLE 穩定 0.2 秒後） *)
+M413 := (M201 AND M112 AND M0 AND M11) OR (M934 AND (D545 < 5))
+        OR (M200 AND (D100 = 20) AND M941 AND (D500 < 5) AND M0);           (* Y13 送螺絲：手動按住；單次鎖付／自動步 20 沒上膛時送 0.5 秒 *)
+(* v3.09（11-11）TABLE 依第幾點切換：第 2 點（D222 = 2）時 Y14 OFF、Y15 ON（TABLE 2），其餘 Y14 ON（TABLE 1）。
+   RC75 只在 CYCLE START 當下讀 TABLE；切換點 = 第 1 點判定完成（P30 步 56→15）。
+   D543 = TABLE 訊號已穩定的時間 (0.1s)；不滿 0.2 秒不送 CYCLE START（P30 步 15、M412） *)
+M415 := (M200 AND (D222 = 2)) OR (M201 AND NOT M200 AND (D546 = 2));     (* Y15 TABLE 2：自動第 2 點、手動第 2 點（v3.12） *)
+M414 := NOT M415;                                                           (* Y14 TABLE 1 *)
+IF M415 <> M864 THEN
+    D543 := 0;
+    M864 := M415;
+ELSIF M950 AND (D543 < 32000) THEN
+    D543 := D543 + 1;
+END_IF;

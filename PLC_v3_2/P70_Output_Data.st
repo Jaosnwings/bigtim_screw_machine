@@ -26,8 +26,8 @@ ELSE
     Y11 := M411 OR M879;   (* RC75 RESET        XB01 *)
     Y12 := M412 OR M880;   (* RC75 CYCLE START  XB02 *)
     Y13 := M413 OR M881;   (* RC75 送螺絲       XB03 *)
-    Y14 := M414 OR M882;   (* RC75 TABLE 1      XB04 *)
-    Y15 := M415;           (* TABLE 2 未接 *)
+    Y14 := (M414 AND NOT M883) OR M882;   (* RC75 TABLE 1 XB04；v3.10：強制 Y15 時程式的 Y14 讓開，才會是 TABLE 2 *)
+    Y15 := M415 OR M883;   (* RC75 TABLE 2      XB05（第 2 點時 ON；v3.10 可強制） *)
 END_IF;
 
 (* ---- HMI 顯示燈 ---- *)

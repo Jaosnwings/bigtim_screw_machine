@@ -16,8 +16,8 @@ IF NOT M0 THEN
     M841 := TRUE;      (* Y3 治具停止保持到復歸流程 *)
 END_IF;
 M141 := M13;                              (* RC75 ALARM（X13） *)
-M146 := M15;                              (* 螺絲不足：警告 *)
-M147 := FALSE;                            (* v3.2 不再使用 *)
+M146 := FALSE;                            (* v3.10：X15 改為「螺絲上膛」，不再當螺絲不足警告 *)
+(* M147 v3.12：送螺絲後沒上膛（P30 步 20 設定，復歸清除） *)
 IF M6 AND M200 THEN M148 := TRUE; END_IF; (* 運轉中治具停止 *)
 IF NOT M10 AND M200 AND ((D100 = 30) OR (D100 = 40)) THEN M155 := TRUE; END_IF;   (* 光柵遮斷：Z 在動 *)
 (* M142、M143、M144、M145、M149、M157 由 P30/P40 設定；M150 由 P30 設定；M152、M153、M154 由 P15 設定 *)
@@ -50,6 +50,7 @@ IF M34 AND NOT M200 THEN
     M143 := FALSE;
     M144 := FALSE;
     M145 := FALSE;
+    M147 := FALSE;   (* v3.12 送螺絲後沒上膛 *)
     IF NOT M6 THEN M148 := FALSE; END_IF;
     M149 := FALSE;
     M150 := FALSE;
@@ -61,7 +62,7 @@ IF M34 AND NOT M200 THEN
 END_IF;
 
 (* 停機型異常 *)
-M214 := M140 OR M141 OR M143 OR M144 OR M148 OR M149 OR M155 OR M157;   (* 機台異常 *)
+M214 := M140 OR M141 OR M143 OR M144 OR M147 OR M148 OR M149 OR M155 OR M157;   (* 機台異常 *)
 M203 := M214 OR M145;
 M204 := M142 OR M146 OR M150 OR M152 OR M153;   (* 警告 *)
 
