@@ -418,7 +418,7 @@ IF (D7160 = 2) AND NOT M2233 THEN
         D6731 := 59;   (* ';' *)
         D6732 := 110;   (* 'n' *)
         D6733 := 61;   (* '=' *)
-        D2322:D := INT_TO_DINT(D222);
+        D2322:D := INT_TO_DINT(D7152);
         IF D2322:D < 0 THEN D2322:D := 0; END_IF;
         IF D2322:D > 9 THEN D2322:D := 9; END_IF;
         D6734 := DINT_TO_INT(D2322:D MOD 10) + 48;

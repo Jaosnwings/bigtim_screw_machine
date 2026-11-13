@@ -109,6 +109,7 @@ IF M201 AND NOT M200 AND M0 AND M10 AND M11 AND M12 AND NOT M13 AND NOT M932 AND
     END_IF;
 END_IF;
 IF M939 THEN
+    D548 := D546;   (* v3.15：這一顆是手動兩點的第幾點（給 RS-485 結果標點號；HMI 單次鎖付 = 0） *)
     IF M15 THEN
         M932 := TRUE;
         M933 := FALSE;

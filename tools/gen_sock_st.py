@@ -215,7 +215,7 @@ def frame_st():
     f.lit(";tt=");     f.dec("INT_TO_DINT(D7146)", 5)
     f.lit(";stop=");   f.dec("INT_TO_DINT(D7147)", 4)
     f.lit(";cs=");     f.dec("INT_TO_DINT(D7148)", 1)
-    f.lit(";n=");      f.dec("INT_TO_DINT(D222)", 1)
+    f.lit(";n=");      f.dec("INT_TO_DINT(D7152)", 1)   # v3.15：RS-485 結果是第幾點（原本 D222）
     return f
 
 
