@@ -13,6 +13,7 @@ import os
 import sys
 
 U0_TOKEN = "'U0'"
+CONN_OFS = 2   # v3.17：連線號碼 = 邏輯編號 + 2（外部設備連接設定的連線 1 = SLMP、2 = MODBUS/TCP 已佔用）
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "..", "PLC_v3_14")
 
@@ -328,9 +329,9 @@ def conn_block(n, st, tmr, en_open, en_close, en_recv, ready, rbusy,
     L.append(f"    {st} := 0;")
     L.append(f"END_CASE;")
     L.append(f"IF ({st} = 2) AND NOT M2236 AND {recvbit} AND NOT {rbusy} THEN {en_recv} := TRUE;  {rbusy} := TRUE; END_IF;")
-    L.append(f"SP_SOCOPEN({en_open}, {U0_TOKEN}, {n}, {ctrl_open}, {done_open});")
-    L.append(f"SP_SOCCLOSE({en_close}, {U0_TOKEN}, {n}, {ctrl_close}, {done_close});")
-    L.append(f"SP_SOCRCV({en_recv}, {U0_TOKEN}, {n}, {ctrl_recv}, {rbuf}, {done_recv});")
+    L.append(f"SP_SOCOPEN({en_open}, {U0_TOKEN}, {n + CONN_OFS}, {ctrl_open}, {done_open});")
+    L.append(f"SP_SOCCLOSE({en_close}, {U0_TOKEN}, {n + CONN_OFS}, {ctrl_close}, {done_close});")
+    L.append(f"SP_SOCRCV({en_recv}, {U0_TOKEN}, {n + CONN_OFS}, {ctrl_recv}, {rbuf}, {done_recv});")
     L.append(f"IF {done_recv} THEN")
     L.append(f"    {rbusy} := FALSE;")
     L.append(f"    IF M{dr_n + 1} THEN D7163 := D{d_recv + 1};  D7172 := {n * 10 + 3}; ELSE {ready} := TRUE; END_IF;")
@@ -352,9 +353,9 @@ def gen_p16():
    socket 時，HO 訊框解開寫進 D7000~D7029（原本由中控用 Modbus 寫的同一區），
      P15 的心跳、Remote/Local、放行、ACK、校時邏輯照舊；中控此時不要再用 Modbus 寫 D7000~D7029。
    連線（都用 SP.SOCOPEN 控制資料 8000H 開啟，參數「外部設備連接設定」不要佔用這幾個連線號碼）：
-     連線 1：中控 D243~D246（IP 四段）:D247，預設 192.168.1.200:9500，本機埠 4001
-     連線 2：SICK 觸發埠 D237~D240:D241，預設 192.168.1.25:2111，本機埠 4002（D248=0 且 D241<>D242 才用）
-     連線 3：SICK 資料埠 D237~D240:D242，預設 192.168.1.25:2112，本機埠 4003
+     連線號碼 3（v3.17 起，邏輯「連線 1」）：中控 D243~D246（IP 四段）:D247，預設 192.168.1.200:9500，本機埠 4001
+     連線號碼 4（邏輯「連線 2」）：SICK 觸發埠 D237~D240:D241，預設 192.168.1.25:2111，本機埠 4002（D248=0 且 D241<>D242 才用）
+     連線號碼 5（邏輯「連線 3」）：SICK 資料埠 D237~D240:D242，預設 192.168.1.25:2112，本機埠 4003
    D248 SICK 觸發方式 0 = CoLa-A「sMN mTCgateon/off」 1 = 送 1 個 STX（0x02，舊中控 ScannerAdapter 的作法）
    D249 SICK 讀取逾時 0.1 秒（預設 30 = 3 秒）
    狀態：D7160 中控連線（0 未連 1 開啟中 2 已連線 3 關閉中 4 等重連） D7161 收到 HO 筆數 D7162 格式錯誤次數
@@ -377,14 +378,14 @@ IF M2190 THEN D7171 := 1; ELSE D7171 := 0; END_IF;
 M2236 := M50 AND M2235 AND M2190;
 M2198 := (D248 = 0) AND (D241 <> D242);   (* 觸發用獨立連線 2 *)
 
-(* socket 狀態：M2240~ 開啟完成（SD10680）、M2256~ 收到資料（SD10682），bit0 = 連線 1 *)
+(* socket 狀態：M2240~ 開啟完成（SD10680）、M2256~ 收到資料（SD10682），bit0 = 連線號碼 1。v3.17 中控／SICK 觸發／SICK 資料用連線號碼 3／4／5 → M2242～M2244、M2258～M2260 *)
 K4M2240 := SD10680;
 K4M2256 := SD10682;
 
 (* ================= 連線 1：中控 ================= *)""".splitlines()
     L += conn_block(1, "D7160", "D2261", "M2209", "M2211", "M2213", "M2215", "M2212",
                     "M2200", "M2202", "M2206", "D2200", "D2210", "D2214", "D3000",
-                    "M2240", "M2256", "M2190", 243, "D247", 4001,
+                    "M2242", "M2258", "M2190", 243, "D247", 4001,
                     ["M2230 := TRUE;   (* 連上後送一次 HI *)"],
                     (" OR M2183", ["M2183 := (D2261 >= 50) AND (NOT M2236 OR M2182);   (* 5 秒沒收到 HO；模擬測試時要 M2182 ON 才計 *)",
                                    "IF M2183 THEN D7172 := 14; END_IF;"]),
@@ -475,11 +476,11 @@ K4M2256 := SD10682;
     L.append("(* 連線 2：觸發埠（只在 M2198 時用） *)")
     L += conn_block(2, "D7164", "D2300", "M2328", "M2329", "M2331", "M2334", "M2332",
                     "M2320", "M2322", "M2326", "D2220", "D2230", "D2234", "D4300",
-                    "M2241", "M2257", "(M2190 AND M2198)", 237, "D241", 4002, [], ("", []), "M2308")
+                    "M2243", "M2259", "(M2190 AND M2198)", 237, "D241", 4002, [], ("", []), "M2308")
     L.append("(* 連線 3：資料埠 *)")
     L += conn_block(3, "D7165", "D2301", "M2348", "M2349", "M2351", "M2354", "M2352",
                     "M2340", "M2342", "M2346", "D2240", "D2250", "D2254", "D5400",
-                    "M2242", "M2258", "M2190", 237, "D242", 4003, [], ("", []), "M2309")
+                    "M2244", "M2260", "M2190", 237, "D242", 4003, [], ("", []), "M2309")
     L.append("(* 連線 2 收到的是 CoLa 回覆（sAN mTCgateon 1），讀出來丟掉即可 *)")
     L.append("")
     L.append("IF M2236 AND M2186 AND (D7165 = 2) THEN   (* 模擬 SICK 回條碼 *)")
@@ -584,8 +585,8 @@ IF M2300 OR M2302 THEN
 END_IF;
 IF D7164 <> 2 THEN M2333 := FALSE; END_IF;
 IF D7165 <> 2 THEN M2353 := FALSE; END_IF;
-SP_SOCSND(M2330, {U0_TOKEN}, 2, D2232, D6900, M2324);
-SP_SOCSND(M2350, {U0_TOKEN}, 3, D2252, D6950, M2344);
+SP_SOCSND(M2330, {U0_TOKEN}, {2 + CONN_OFS}, D2232, D6900, M2324);
+SP_SOCSND(M2350, {U0_TOKEN}, {3 + CONN_OFS}, D2252, D6950, M2344);
 IF M2324 THEN
     M2333 := FALSE;
     IF M2325 THEN D7163 := D2233;  D7172 := 22;  M2308 := TRUE; END_IF;
@@ -644,7 +645,7 @@ IF (D7160 = 2) AND NOT M2233 THEN
     L.append("        END_IF;")
     L.append("    END_IF;")
     L.append("END_IF;")
-    L += f"""SP_SOCSND(M2305, {U0_TOKEN}, 1, D2212, D6800, M2204);
+    L += f"""SP_SOCSND(M2305, {U0_TOKEN}, {1 + CONN_OFS}, D2212, D6800, M2204);
 IF M2204 THEN
     M2233 := FALSE;
     IF M2205 THEN
