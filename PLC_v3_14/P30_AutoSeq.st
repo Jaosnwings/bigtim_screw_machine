@@ -42,6 +42,8 @@ IF D100 <> D101 THEN
         D2033 := SD213;  D2034 := SD214;  D2035 := SD215;   (* 開始：時分秒 *)
         M150 := FALSE;   (* 已放行，中控未放行警告自動解除 *)
         M322 := TRUE;    (* 本產品目前全部 OK *)
+        D7157 := 0;  D7158 := 0;                              (* v3.18 HMI 每顆判定 *)
+        D7153 := 0;  D7154 := 0;  D7155 := 0;  D7156 := 0;   (* v3.18 新的一件：清上一件分點扭力／時間 *)
     END_IF;
 ELSIF M950 AND NOT M845 AND (D500 < 32000) THEN
     D500 := D500 + 1;
@@ -140,7 +142,12 @@ CASE D100 OF
         M144 := TRUE;
     END_IF;
 
-50: (* 判定這一點（只執行一個掃描） *)
+50: (* 判定這一點（只執行一個掃描）；v3.18 每顆判定 D7157／D7158：1 OK、2 NG（看 X17 締付 OK） *)
+    IF D222 = 1 THEN
+        IF M321 THEN D7157 := 1; ELSE D7157 := 2; END_IF;
+    ELSE
+        IF M321 THEN D7158 := 1; ELSE D7158 := 2; END_IF;
+    END_IF;
     IF M321 THEN
         IF D222 = 1 THEN D230 := D230 + 1; ELSE D231 := D231 + 1; END_IF;
     ELSE

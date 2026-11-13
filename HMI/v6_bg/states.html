@@ -9,9 +9,10 @@
 // 尺寸與座標見 home_parts.md；GP-Pro EX 用圖片零件疊在同座標，依位元／字元顯示。
 // 項目：id: [w, h, 種類, 文字, 選項]
 const N = (t) => [678, 56, 'text', t, { bg: 'CR', fg: 'TX', fs: 32, css: 'justify-content:center;border:1px solid #888' }];
+const ST = (t, sub, bg, fg) => [380, 100, 'lamp', t + '<br><span style="font-size:20px">' + sub + '</span>', { bg, fg, fs: 36, lh: 1.1 }];
 const S = {
   // N1 下一步（D2053）
-  n_100: N('按「啟動」開始自動運轉'),
+  n_100: N('準備中，請稍候'),
   n_101: N('急停中：放開急停後按「復歸」'),
   n_102: N('光柵被遮住：請離開光柵範圍'),
   n_103: N('鎖付機未就緒：等 RC75 READY'),
@@ -45,14 +46,19 @@ const S = {
   b4_ng:  [114, 56, 'lamp', '靜電 NG', { bg: 'R1', fs: 22 }],
   b5_on:  [114, 28, 'lamp', '檢查：啟用', { bg: 'SL', fs: 14 }],
   b9_on:  [204, 24, 'lamp', '中控已放行', { bg: 'G1', fs: 15 }],
-  b12_ok: [80, 56, 'lamp', 'OK', { bg: 'G1', fs: 30 }],
-  b12_ng: [80, 56, 'lamp', 'NG', { bg: 'R1', fs: 30 }],
-  b13_ok: [72, 30, 'lamp', '扭力 OK', { bg: 'G1', fs: 14 }],
-  b13_ng: [72, 30, 'lamp', '扭力 NG', { bg: 'R1', fs: 14 }],
-  b14_ok: [72, 30, 'lamp', '角度 OK', { bg: 'G1', fs: 14 }],
-  b14_ng: [72, 30, 'lamp', '角度 NG', { bg: 'R1', fs: 14 }],
-  b15_ok: [72, 30, 'lamp', '高度 OK', { bg: 'G1', fs: 14 }],
-  b15_ng: [72, 30, 'lamp', '高度 NG', { bg: 'R1', fs: 14 }],
+  // 11-13 v2：本件判定縮成標題列右側 96×24；每顆判定格 53×35（表格內框）；EMO 閃爍圖 186×100
+  b12_ok: [96, 24, 'lamp', 'OK', { bg: 'G1', fs: 16 }],
+  b12_ng: [96, 24, 'lamp', 'NG', { bg: 'R1', fs: 16 }],
+  j_ok:   [53, 35, 'text', 'OK', { bg: 'WH', fg: 'G1', fs: 18, al: 'c' }],
+  j_ng:   [53, 35, 'text', 'NG', { bg: 'WH', fg: 'R1', fs: 18, al: 'c' }],
+  // 11-13 v3：機台狀態 380×100（10,372），D2055 = 1～6 → M2447～M2452；s_emo2 = 急停閃爍（M2446，疊在 s_emo 上）
+  s_emo:  ST('急停中', '放開急停鈕後按「復歸」', 'R1', 'WH'),
+  s_emo2: ST('急停中', '放開急停鈕後按「復歸」', 'YL', 'R1'),
+  s_nr:   ST('未就緒', '請看上方「下一步」', 'AM', 'TX'),
+  s_man:  ST('手動模式', '到「更多」切回自動', 'SL', 'WH'),
+  s_rdy:  ST('待機', '放好產品後，按綠色啟動鍵', 'G1', 'WH'),
+  s_wait: ST('等中控放行', '請稍候', 'BL', 'WH'),
+  s_run:  ST('作業中', '請勿伸手', 'G2', 'WH'),
 };
 const id = location.search.slice(1);
 const [w, h, kind, text, o] = S[id];

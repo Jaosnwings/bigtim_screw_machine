@@ -37,8 +37,8 @@ CASE D110 OF
 2:  (* 等 RC75 清除異常 *)
     IF D501 >= 5 THEN D110 := 3; END_IF;
 
-3:  (* Z 軸回原點：X12 OFF 時送 RETURN *)
-    IF M12 AND NOT M13 THEN
+3:  (* Z 軸回原點：v3.18 RETURN 至少送 0.5 秒（已在原點也送），之後 X12 HOME 才往下 *)
+    IF M12 AND NOT M13 AND (D501 >= 5) THEN
         D110 := 4;
     ELSIF D501 >= D212 THEN
         M149 := TRUE;
@@ -48,6 +48,8 @@ CASE D110 OF
 4:  (* Z 在安全位置（Y4 ON）→ 解除急停保持，下一步 Y3 OFF *)
     M841 := FALSE;
     IF M0 THEN M140 := FALSE; END_IF;
+    M860 := TRUE;   (* v3.18 治具復歸：Y3 脈衝 1 秒（同上電） *)
+    D542 := 0;
     D110 := 5;
 
 5:  (* 治具回水平：Y3 OFF 後監看 X5 *)
@@ -184,7 +186,7 @@ M404 := M0 AND M12 AND NOT M13;                                             (* Y
 M405 := M852 OR (M7 AND M0);                                               (* Y5 治具啟動：X1 啟動鈕按著就 ON（v3.07）；手動 Y5 鈕；v3.12 自動不再自己送 Y5 *)
 M406 := M400;                                                               (* Y6 預留：過渡期同紅燈 *)
 M407 := FALSE;                                                              (* Y7 預留 *)
-M410 := ((D110 = 3) AND NOT M12) OR (M201 AND M110 AND M0);                 (* Y10 RC75 RETURN *)
+M410 := ((D110 = 3) AND ((D501 < 5) OR NOT M12)) OR (M201 AND M110 AND M0);                 (* Y10 RC75 RETURN *)
 M411 := (D110 = 1) OR M844 OR (M201 AND M111 AND M0);                       (* Y11 RC75 RESET *)
 M412 := (((D100 = 30) AND (D500 < D225)) OR (M932 AND (D535 < D225)))
         AND M0 AND NOT M410 AND NOT M413 AND (D543 >= 2);                                   (* Y12 CYCLE START（TABLE 穩定 0.2 秒後） *)

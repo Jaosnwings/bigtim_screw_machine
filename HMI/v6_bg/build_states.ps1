@@ -7,10 +7,10 @@ New-Item -ItemType Directory -Force $out | Out-Null
 Add-Type -AssemblyName System.Drawing
 $src = Get-Content -Raw -Encoding utf8 (Join-Path $here 'states.html')
 $page = 'file:///' + (Join-Path $here 'states.html').Replace('\', '/')
-$items = [regex]::Matches($src, '(?m)^\s*(\w+):\s*(?:\[(\d+),\s*(\d+),|N\()')
+$items = [regex]::Matches($src, '(?m)^\s*(\w+):\s*(?:\[(\d+),\s*(\d+),|N\(|(ST)\()')
 foreach ($m in $items) {
     $id = $m.Groups[1].Value
-    if ($m.Groups[2].Success) { $w = [int]$m.Groups[2].Value; $h = [int]$m.Groups[3].Value } else { $w = 678; $h = 56 }
+    if ($m.Groups[2].Success) { $w = [int]$m.Groups[2].Value; $h = [int]$m.Groups[3].Value } elseif ($m.Groups[4].Success) { $w = 380; $h = 100 } else { $w = 678; $h = 56 }
     $png = Join-Path $out "$id.png"
     & $chrome --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 `
         "--window-size=$w,$h" "--screenshot=$png" "$page`?$id" 2>$null | Out-Null

@@ -68,7 +68,14 @@ M204 := M142 OR M146 OR M150 OR M152 OR M153;   (* 警告 *)
 
 (* ---- 自動 / 手動切換（停止中、不在復歸才可切） ---- *)
 M920 := M103 AND NOT M921;  M921 := M103;
-IF M920 AND NOT M200 AND (D110 = 0) THEN M201 := NOT M201; END_IF;
+(* v3.18：自動待機（步 10）時也可切手動，切過去就離開自動 *)
+IF M920 AND (NOT M200 OR (D100 = 10)) AND (D110 = 0) THEN
+    M201 := NOT M201;
+    IF M201 THEN
+        M200 := FALSE;
+        M301 := FALSE;
+    END_IF;
+END_IF;
 
 (* ---- 運轉準備完成 ---- *)
 M202 := M0 AND M10 AND M11 AND M12 AND NOT M13 AND M5 AND NOT M6
@@ -99,6 +106,20 @@ IF M30 AND NOT M200 AND NOT M201 THEN
     ELSE
         M142 := TRUE;   (* 警告：條件不足，看 D2052 *)
     END_IF;
+END_IF;
+
+(* ---- v3.18 自動進待機：HMI 首頁不再有啟動／停止鍵。自動模式、運轉準備完成 M202 連續 1.0 秒 → 進入待機。
+   待機中不會有任何動作，每一件仍要按綠色啟動鍵 X1；異常、鎖付 NG、急停後要先按復歸，條件成立才會再進待機 ---- *)
+IF M202 AND NOT M200 AND NOT M201 THEN
+    IF M950 AND (D549 < 32000) THEN D549 := D549 + 1; END_IF;
+    IF D549 >= 10 THEN
+        M200 := TRUE;
+        M301 := FALSE;
+        M142 := FALSE;
+        D549 := 0;
+    END_IF;
+ELSE
+    D549 := 0;
 END_IF;
 
 (* ---- 停止：鎖完目前這個產品再停 ---- *)
