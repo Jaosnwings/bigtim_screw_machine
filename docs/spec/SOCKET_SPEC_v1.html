@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<title>鎖螺絲站 TCP Socket 協定 v1 — PLC 開發規格</title>
+<style>
+@page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+:root { --ink:#1b2430; --mute:#5b6675; --line:#c9d2dc; --host:#1d4ed8; --hostbg:#e8efff; --plc:#047857; --plcbg:#e6f6ef;
+  --sick:#b45309; --sickbg:#fff4e0; --warn:#b91c1c; --warnbg:#fdecec; --code:#f4f6f8; }
+* { box-sizing: border-box; }
+body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; color: var(--ink); font-size: 10.2pt; line-height: 1.55; margin: 0; }
+h1 { font-size: 22pt; margin: 0 0 4mm; }
+h2 { font-size: 14.5pt; margin: 7mm 0 2.5mm; padding-bottom: 1.2mm; border-bottom: 2px solid var(--ink); break-after: avoid; }
+h3 { font-size: 11.5pt; margin: 4.5mm 0 1.5mm; break-after: avoid; }
+p { margin: 1.2mm 0 2mm; }
+table { border-collapse: collapse; width: 100%; margin: 1.5mm 0 3mm; font-size: 9.2pt; break-inside: auto; }
+th, td { border: 1px solid var(--line); padding: 1.2mm 1.8mm; vertical-align: top; text-align: left; }
+th { background: #eef1f5; font-weight: 700; }
+tr { break-inside: avoid; }
+code, .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; }
+code { background: var(--code); padding: 0 1mm; border-radius: 2px; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 3px; padding: 2mm 3mm; font-family: Consolas, monospace;
+  font-size: 8.6pt; line-height: 1.45; white-space: pre-wrap; word-break: break-all; margin: 1.5mm 0 3mm; break-inside: avoid; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: space-between; break-after: page; }
+.cover .band { background: var(--ink); color: #fff; padding: 9mm 9mm 8mm; border-radius: 4px; }
+.cover .band h1 { color: #fff; font-size: 24pt; }
+.cover .band .sub { font-size: 13pt; opacity: .9; }
+.meta td:first-child { width: 34mm; background: #f6f8fa; font-weight: 700; }
+.note { border-left: 4px solid var(--host); background: var(--hostbg); padding: 2mm 3mm; margin: 2mm 0 3mm; break-inside: avoid; }
+.must { border-left: 4px solid var(--warn); background: var(--warnbg); padding: 2mm 3mm; margin: 2mm 0 3mm; break-inside: avoid; }
+.fig { margin: 2mm 0 4mm; break-inside: avoid; text-align: center; }
+.fig figcaption { font-size: 8.8pt; color: var(--mute); margin-top: 1mm; }
+svg text { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; }
+svg .mono { font-family: Consolas, monospace; }
+.toc li { margin: .6mm 0; }
+.pb { break-before: page; }
+.small { font-size: 8.8pt; color: var(--mute); }
+.tag { display:inline-block; padding:0 1.6mm; border-radius:2px; font-size:8.4pt; font-weight:700; color:#fff; }
+.t-host{background:var(--host)} .t-plc{background:var(--plc)} .t-sick{background:var(--sick)}
+</style></head>
+<body>
+
+<!-- ============================== 封面 ============================== -->
+<section class="cover">
+  <div>
+    <div class="band">
+      <div class="sub">car_light_system 生產履歷系統 ・ 站 2 鎖螺絲站（MC-D002）</div>
+      <h1>PLC ↔ 中控 TCP Socket 協定 v1<br>PLC 開發規格書</h1>
+      <div class="sub">取代 Modbus TCP 交握 ＋ 條碼機（SICK Lector）改由 PLC 控制</div>
+    </div>
+    <table class="meta" style="margin-top:8mm">
+      <tr><td>文件版本</td><td>1.0（2026-11-13）</td></tr>
+      <tr><td>協定版本</td><td>proto = 01</td></tr>
+      <tr><td>適用對象</td><td>PLC 程式開發人員（本文件即開發依據）；中控端已依同一規格實作完成</td></tr>
+      <tr><td>參考實作</td><td>三菱 FX5S，PLC 程式 v3.14：GitHub <span class="mono">Jaosnwings/bigtim_screw_machine</span> 分支 <span class="mono">socket-v3_14</span>（<span class="mono">PLC_v3_14/P16_Sock.st</span>、<span class="mono">P76_Sock_Out.st</span>）。GX Works3 Rebuild All 0 錯誤、GX Simulator3 已驗證解析與組字串</td></tr>
+      <tr><td>中控實作</td><td><span class="mono">Jaosnwings/car_light_system</span> main：<span class="mono">modbus/socket_frame.py</span>、<span class="mono">socket_station.py</span>（server :9500）</td></tr>
+      <tr><td>測試工具</td><td><span class="mono">tools/fake_host.py</span>（筆電當假中控）；中控端 <span class="mono">modbus/socket_plc_sim.py</span>（模擬 PLC）</td></tr>
+    </table>
+    <h3>目錄</h3>
+    <ol class="toc">
+      <li>設計原則與範圍</li>
+      <li>系統架構與連線</li>
+      <li>訊框通用規則與拆解方法</li>
+      <li>訊框規格（HI / ST / SC / HO / TG）與位元組配置</li>
+      <li>交握流程（連線、心跳、工號、進站、放行、完工）</li>
+      <li>條碼機（SICK Lector）由 PLC 控制</li>
+      <li>連線狀態機、逾時與錯誤處理</li>
+      <li>PLC 端實作規格（FX5 指令、軟元件、掃描順序）</li>
+      <li>驗收測試清單</li>
+      <li>附錄：狀態位元、控制位元、系統訊息碼</li>
+    </ol>
+  </div>
+  <p class="small">本規格與中控程式一致。欄位長度、順序、逾時值若要改，必須兩邊同時改並升 proto 版本。</p>
+</section>
+
+<!-- ============================== 1 ============================== -->
+<h2>1. 設計原則與範圍</h2>
+<ul>
+  <li><b>只換資料進出方式，不改流程。</b>PLC 的自動步序、HMI、V10 交握語意（開始／放行／ACK／完工）全部不變。原本中控用 Modbus 寫進 <b>D7000～D7029</b> 的內容，改成整包放在 <code>HO</code> 訊框；原本中控用 Modbus 讀的 <b>D7100～D7151</b>，改成整包放在 <code>ST</code> 訊框。</li>
+  <li><b>狀態同步，不逐筆確認。</b><code>HO</code> 與 <code>ST</code> 都是「目前狀態快照」，每 1 秒送一次，內容有變化時立刻再送。掉一筆沒關係，下一筆會補上，所以沒有 ACK、沒有重送、沒有序號。</li>
+  <li><b>條碼機（八扣／barcode）整合進 PLC。</b>SICK Lector 改由 PLC 連線與觸發。中控要讀碼時送 <code>TG</code>，PLC 觸發 SICK、取回條碼後用 <code>SC</code> 回覆。中控不再直接連條碼機（同一台條碼機只能有一個主人）。</li>
+  <li><b>混合版、可切換。</b>PLC 參數 <b>D236</b>：0 = Modbus（舊版行為，完全不變）、1 = socket。中控 <code>targets.json</code> 每站 <code>transport</code>：<code>modbus</code> / <code>socket</code>。兩邊要同時切。</li>
+</ul>
+
+<!-- ============================== 2 ============================== -->
+<h2>2. 系統架構與連線</h2>
+<figure class="fig">
+<svg viewBox="0 0 760 330" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b2430"/></marker>
+  </defs>
+  <!-- host -->
+  <rect x="20" y="30" width="200" height="120" rx="8" fill="#e8efff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="120" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#1d4ed8">中控 car_light_system</text>
+  <text x="120" y="80" text-anchor="middle" font-size="12">TCP <tspan font-weight="700">Server</tspan></text>
+  <text x="120" y="100" text-anchor="middle" font-size="12" class="mono">192.168.1.200 : 9500</text>
+  <text x="120" y="122" text-anchor="middle" font-size="11" fill="#5b6675">SocketGateway（一站一條連線）</text>
+  <text x="120" y="138" text-anchor="middle" font-size="11" fill="#5b6675">以 HI 的站號綁定站 2</text>
+  <!-- plc -->
+  <rect x="300" y="30" width="200" height="200" rx="8" fill="#e6f6ef" stroke="#047857" stroke-width="2"/>
+  <text x="400" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#047857">PLC 三菱 FX5S</text>
+  <text x="400" y="78" text-anchor="middle" font-size="12" class="mono">192.168.1.21</text>
+  <text x="400" y="98" text-anchor="middle" font-size="12">內建乙太網路 socket</text>
+  <rect x="318" y="110" width="164" height="26" rx="4" fill="#fff" stroke="#047857"/>
+  <text x="400" y="128" text-anchor="middle" font-size="11">連線 1 → 中控（Active）</text>
+  <rect x="318" y="142" width="164" height="26" rx="4" fill="#fff" stroke="#047857"/>
+  <text x="400" y="160" text-anchor="middle" font-size="11">連線 2 → SICK 觸發埠（Active）</text>
+  <rect x="318" y="174" width="164" height="26" rx="4" fill="#fff" stroke="#047857"/>
+  <text x="400" y="192" text-anchor="middle" font-size="11">連線 3 → SICK 資料埠（Active）</text>
+  <text x="400" y="220" text-anchor="middle" font-size="10.5" fill="#5b6675">本機埠 4001 / 4002 / 4003</text>
+  <!-- sick -->
+  <rect x="560" y="120" width="180" height="110" rx="8" fill="#fff4e0" stroke="#b45309" stroke-width="2"/>
+  <text x="650" y="148" text-anchor="middle" font-size="15" font-weight="700" fill="#b45309">SICK Lector 條碼機</text>
+  <text x="650" y="170" text-anchor="middle" font-size="12" class="mono">192.168.1.25</text>
+  <text x="650" y="190" text-anchor="middle" font-size="11">2111 觸發（CoLa-A）</text>
+  <text x="650" y="208" text-anchor="middle" font-size="11">2112 資料（STX 條碼 ETX）</text>
+  <!-- others -->
+  <rect x="560" y="30" width="180" height="70" rx="8" fill="#f4f6f8" stroke="#8a94a3"/>
+  <text x="650" y="56" text-anchor="middle" font-size="13" font-weight="700">HMI Pro-face ET-6400WA</text>
+  <text x="650" y="76" text-anchor="middle" font-size="11" class="mono">192.168.1.20（SLMP，不變）</text>
+  <rect x="300" y="262" width="200" height="50" rx="8" fill="#f4f6f8" stroke="#8a94a3"/>
+  <text x="400" y="284" text-anchor="middle" font-size="12" font-weight="700">SD550T 起子控制器</text>
+  <text x="400" y="301" text-anchor="middle" font-size="10.5">RS-485（FX5-485ADP，不變）</text>
+  <!-- links -->
+  <line x1="220" y1="123" x2="298" y2="123" stroke="#1b2430" stroke-width="2.2" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text x="259" y="114" text-anchor="middle" font-size="10" font-weight="700">← HO / TG</text>
+  <text x="259" y="142" text-anchor="middle" font-size="10" font-weight="700">HI/ST/SC →</text>
+  <path d="M482 155 H530 V160 H558" fill="none" stroke="#b45309" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M558 205 H530 V187 H484" fill="none" stroke="#b45309" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="500" y1="62" x2="558" y2="62" stroke="#8a94a3" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="400" y1="230" x2="400" y2="260" stroke="#8a94a3" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <!-- old modbus -->
+  <path d="M120 150 V287 H298" fill="none" stroke="#9aa4b1" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="20" y="318" font-size="10.5" fill="#5b6675">舊：Modbus TCP :502（D236=0 時照舊）</text>
+</svg>
+<figcaption>圖 1　連線架構。實線 = socket v1；虛線 = 不變或舊路徑。</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:24%">項目</th><th>規定</th></tr>
+  <tr><td>角色</td><td>中控 = TCP <b>server</b>，PLC = TCP <b>client</b>（Active open）。PLC 一開機（D236=1 且停止中）就主動連線，斷了自己重連。</td></tr>
+  <tr><td>位址</td><td>中控 192.168.1.200 埠 <b>9500</b>（PLC 參數 D243～D246、D247 可改）。</td></tr>
+  <tr><td>站的辨識</td><td>連上後 PLC 的<b>第一筆必須是 <code>HI</code></b>，中控用 <code>st</code>（站號）與 <code>eq</code>（設備編號）綁定。eq 與中控登錄不符（站 2 = <code>MC-D002</code>）或 5 秒內沒收到 HI，中控直接關線。</td></tr>
+  <tr><td>連線數</td><td>中控每站只保留一條連線；同一站再連進來，舊的那條會被關掉。</td></tr>
+  <tr><td>條碼機</td><td>PLC 另開兩條 client 連線到 SICK（2111 觸發、2112 資料）。若連線數不夠，可設成同一埠（見 §6）。</td></tr>
+</table>
+
+<!-- ============================== 3 ============================== -->
+<h2 class="pb">3. 訊框通用規則與拆解方法</h2>
+<table>
+  <tr><th style="width:24%">項目</th><th>規定</th></tr>
+  <tr><td>字元</td><td>ASCII，只用可列印字元 0x20～0x7E。</td></tr>
+  <tr><td>結尾</td><td>每筆以 <b>CR LF</b>（0x0D 0x0A）結尾。接收端<b>看到 LF 就是一筆結束</b>，LF 前面若是 CR 就去掉。</td></tr>
+  <tr><td>格式</td><td><code>型別;key=value;key=value…</code>。型別 2 個大寫字母。</td></tr>
+  <tr><td>固定長度</td><td><b>欄位順序固定、每個 value 長度固定。</b>數字左補 0，字串右補空白，16 進位用大寫。所以每種訊框總長固定，PLC 可以<b>直接用位置取值</b>，不必找分號。</td></tr>
+  <tr><td>字串內容</td><td>字串欄不得含 <code>;</code> <code>=</code>（送出前換成空白）。</td></tr>
+  <tr><td>最大長度</td><td>一行超過 120 字元（PLC 端）／512 位元組（中控端）整行丟掉。</td></tr>
+  <tr><td>未知型別</td><td>整筆丟掉、錯誤計數 +1，<b>不斷線</b>。</td></tr>
+</table>
+
+<h3>3.1 TCP 是位元組串流：一定要自己組行</h3>
+<p>TCP 不保留「一筆」的邊界：一次收到的資料可能只有半筆、剛好一筆、或好幾筆黏在一起。PLC 必須準備一個<b>行緩衝</b>，每收到資料就逐位元組處理：</p>
+<figure class="fig">
+<svg viewBox="0 0 760 210" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1b2430"/></marker></defs>
+  <g font-size="11.5">
+  <rect x="10" y="20" width="130" height="44" rx="6" fill="#e6f6ef" stroke="#047857"/><text x="75" y="40" text-anchor="middle">收到資料</text><text x="75" y="56" text-anchor="middle" font-size="9" class="mono">SP.SOCRCV→D3000</text>
+  <rect x="170" y="20" width="130" height="44" rx="6" fill="#fff" stroke="#1b2430"/><text x="235" y="40" text-anchor="middle">取下一個位元組 c</text><text x="235" y="56" text-anchor="middle" font-size="9">i 偶數取低、奇數取高</text>
+  <polygon points="390,20 450,42 390,64 330,42" fill="#fff4e0" stroke="#b45309"/><text x="390" y="46" text-anchor="middle">c = LF?</text>
+  <rect x="490" y="20" width="250" height="44" rx="6" fill="#e8efff" stroke="#1d4ed8"/><text x="615" y="38" text-anchor="middle">一行完成：去掉結尾 CR</text><text x="615" y="55" text-anchor="middle" font-size="10.5">依「型別＋長度」解析 → 行長歸 0</text>
+  <rect x="300" y="110" width="180" height="44" rx="6" fill="#fff" stroke="#1b2430"/><text x="390" y="130" text-anchor="middle">行長 &lt; 120：c 放進行緩衝</text><text x="390" y="146" text-anchor="middle" font-size="10.5">否則設「太長」旗標，等 LF 整行丟</text>
+  <rect x="520" y="110" width="220" height="44" rx="6" fill="#fdecec" stroke="#b91c1c"/><text x="630" y="130" text-anchor="middle">斷線時：行緩衝清空</text><text x="630" y="146" text-anchor="middle" font-size="10.5">半筆資料不可帶到下一條連線</text>
+  </g>
+  <line x1="140" y1="42" x2="168" y2="42" stroke="#1b2430" stroke-width="1.6" marker-end="url(#b)"/>
+  <line x1="300" y1="42" x2="328" y2="42" stroke="#1b2430" stroke-width="1.6" marker-end="url(#b)"/>
+  <line x1="450" y1="42" x2="488" y2="42" stroke="#1b2430" stroke-width="1.6" marker-end="url(#b)"/><text x="468" y="36" font-size="10" text-anchor="middle">是</text>
+  <line x1="390" y1="64" x2="390" y2="108" stroke="#1b2430" stroke-width="1.6" marker-end="url(#b)"/><text x="400" y="90" font-size="10">否</text>
+  <path d="M300 132 H235 V66" fill="none" stroke="#1b2430" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#b)"/>
+  <path d="M615 64 V84 H250 V66" fill="none" stroke="#1b2430" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#b)"/>
+  <text x="380" y="190" text-anchor="middle" font-size="10.5" fill="#5b6675">（虛線＝處理下一個位元組，直到這次收到的位元組用完）</text>
+</svg>
+<figcaption>圖 2　接收端組行流程（PLC 與中控都照這個做）</figcaption>
+</figure>
+
+<h3>3.2 位元組 ↔ 字元件（FX5 的放法）</h3>
+<p>FX5 的 SP.SOCRCV / SP.SOCSND：緩衝第 0 字 = 位元組數，之後每個字放 2 個位元組，<b>先到的位元組放低位元組</b>。奇數長度時最後一個字的高位元組無效。</p>
+<figure class="fig">
+<svg viewBox="0 0 760 120" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <text x="10" y="22" font-weight="700">線上位元組：</text>
+  <g class="mono">
+  <rect x="110" y="8" width="40" height="22" fill="#fff" stroke="#1b2430"/><text x="120" y="24" text-anchor="middle">'H'</text>
+  <rect x="150" y="8" width="40" height="22" fill="#fff" stroke="#1b2430"/><text x="170" y="24" text-anchor="middle">'O'</text>
+  <rect x="190" y="8" width="40" height="22" fill="#fff" stroke="#1b2430"/><text x="210" y="24" text-anchor="middle">';'</text>
+  <rect x="230" y="8" width="40" height="22" fill="#fff" stroke="#1b2430"/><text x="250" y="24" text-anchor="middle">'h'</text>
+  <text x="290" y="24">…</text>
+  </g>
+  <text x="10" y="80" font-weight="700">PLC 緩衝：</text>
+  <g class="mono">
+  <rect x="110" y="62" width="120" height="30" fill="#e6f6ef" stroke="#047857"/><text x="170" y="82" text-anchor="middle">D3000 = 長度</text>
+  <rect x="230" y="62" width="120" height="30" fill="#e6f6ef" stroke="#047857"/><text x="290" y="82" text-anchor="middle">D3001 = 16#4F48</text>
+  <rect x="350" y="62" width="120" height="30" fill="#e6f6ef" stroke="#047857"/><text x="410" y="82" text-anchor="middle">D3002 = 16#683B</text>
+  <text x="490" y="82">…</text>
+  </g>
+  <text x="560" y="72" font-size="10.5">高位元組 4F='O'</text><text x="560" y="88" font-size="10.5">低位元組 48='H'</text>
+  <path d="M130 30 C130 45 270 50 280 62" fill="none" stroke="#b45309" stroke-width="1.3"/>
+  <path d="M170 30 C170 45 300 50 300 62" fill="none" stroke="#b45309" stroke-width="1.3"/>
+</svg>
+<figcaption>圖 3　SOCRCV / SOCSND 的位元組放法（第 i 個位元組 = 字 1+i/2；i 偶數取低位元組，奇數取高位元組）</figcaption>
+</figure>
+<div class="note"><b>字串寫進 D7003～D7023 時的位元組順序</b>（給 HMI 顯示用）：每個字放 2 個字元，沿用現有參數 <b>M2091</b>：OFF = 第 1 字元放高位元組（中控預設 High-Byte First），ON = 放低位元組。這跟 SOCRCV 緩衝的放法無關，要分開處理。</div>
+
+<!-- ============================== 4 ============================== -->
+<h2 class="pb">4. 訊框規格與位元組配置</h2>
+<table>
+  <tr><th>型別</th><th>方向</th><th>總長（不含 CR LF）</th><th>何時送</th></tr>
+  <tr><td><code>HI</code></td><td><span class="tag t-plc">PLC</span> → <span class="tag t-host">中控</span></td><td>38</td><td>連線成功後第一筆，只送一次</td></tr>
+  <tr><td><code>ST</code></td><td><span class="tag t-plc">PLC</span> → <span class="tag t-host">中控</span></td><td>135</td><td>每 1 秒；狀態位元 sw（D7107）或 run（D7105）變化時立刻再送</td></tr>
+  <tr><td><code>SC</code></td><td><span class="tag t-plc">PLC</span> → <span class="tag t-host">中控</span></td><td>49</td><td>回覆 TG（讀到條碼或 NoRead）</td></tr>
+  <tr><td><code>HO</code></td><td><span class="tag t-host">中控</span> → <span class="tag t-plc">PLC</span></td><td>98</td><td>連線後立刻一筆，之後每 1 秒；中控寫任何 Host 欄位時立刻再送</td></tr>
+  <tr><td><code>TG</code></td><td><span class="tag t-host">中控</span> → <span class="tag t-plc">PLC</span></td><td>12</td><td>中控需要讀條碼時（工號、進站序號、出站複刷）</td></tr>
+</table>
+<p class="small">下圖「位元組配置」中，灰底是固定分隔文字（PLC 解析時也要逐字檢查），彩色是值；格子下方數字為 0 起算的位置。</p>
+<div id="maps"></div>
+
+<h3>4.1 HO（中控 → PLC），98 字元</h3>
+<pre>HO;hb=00124;code=09;b=0013;sn=SN20261112-000000017;wo=WO2611120001;op=OP00012   ;ts=20261112153002</pre>
+<table>
+  <tr><th>欄位</th><th>位置</th><th>長度</th><th>格式／合法值</th><th>寫入</th><th>說明</th></tr>
+  <tr><td>hb</td><td>6–10</td><td>5</td><td>十進位 0～65535</td><td>D7000</td><td>中控心跳，每秒 +1。32768 以上以 16 位元無號值存</td></tr>
+  <tr><td>code</td><td>17–18</td><td>2</td><td>十進位 00～11</td><td>D7001</td><td>系統訊息碼（附錄 C）</td></tr>
+  <tr><td>b</td><td>22–25</td><td>4</td><td>16 進位 0～F（大小寫都收）</td><td>D7002</td><td>控制位元（附錄 B）</td></tr>
+  <tr><td>sn</td><td>30–49</td><td>20</td><td>0x20～0x7E</td><td>D7003～D7012</td><td>現行作業序號，右補空白</td></tr>
+  <tr><td>wo</td><td>54–65</td><td>12</td><td>0x20～0x7E</td><td>D7013～D7018</td><td>現行工單名稱</td></tr>
+  <tr><td>op</td><td>70–79</td><td>10</td><td>0x20～0x7E</td><td>D7019～D7023</td><td>現行登入工號</td></tr>
+  <tr><td>ts</td><td>84–97</td><td>14</td><td>YYYYMMDDhhmmss</td><td>D7024～D7029</td><td><b>全 0 = 這一筆不校時，D7024～D7029 不要動</b></td></tr>
+</table>
+<div class="must"><b>HO 驗證規則（全部通過才寫入，任一不過整筆丟、錯誤次數 +1，D7000～D7029 一個都不動）：</b>
+① 長度剛好 98；② 開頭 <code>HO;</code>；③ 所有分隔文字（<code>;hb=</code> <code>;code=</code> <code>;b=</code> <code>;sn=</code> <code>;wo=</code> <code>;op=</code> <code>;ts=</code>）在固定位置；④ 數字欄只有 0～9，b 只有 0～9 A～F a～f，字串欄只有 0x20～0x7E；⑤ hb ≤ 65535。
+校時：ts 不是全 0 時，數值合理（年 2000～2099、月 1～12…）且與 PLC 時鐘差到「分」以上才寫 PLC 時鐘（沿用 v3.13 P15 校時邏輯）。</div>
+
+<h3>4.2 TG（中控 → PLC），12 字元</h3>
+<pre>TG;rid=00017</pre>
+<table><tr><th>欄位</th><th>位置</th><th>長度</th><th>說明</th></tr>
+<tr><td>rid</td><td>7–11</td><td>5</td><td>請求編號 00001～99999，PLC 在 SC 裡照抄</td></tr></table>
+
+<h3>4.3 HI（PLC → 中控），38 字元</h3>
+<pre>HI;st=02;eq=MC-D002 ;ver=0314;proto=01</pre>
+<table><tr><th>欄位</th><th>位置</th><th>長度</th><th>來源</th><th>說明</th></tr>
+<tr><td>st</td><td>6–7</td><td>2</td><td>固定 02</td><td>站號</td></tr>
+<tr><td>eq</td><td>12–19</td><td>8</td><td>固定 <code>MC-D002 </code></td><td>設備編號，右補空白。<b>必須與中控登錄一致</b>，否則中控拒絕連線</td></tr>
+<tr><td>ver</td><td>25–28</td><td>4</td><td>D7106</td><td>PLC 程式版號，314 = v3.14</td></tr>
+<tr><td>proto</td><td>36–37</td><td>2</td><td>固定 01</td><td>協定版本</td></tr></table>
+
+<h3>4.4 ST（PLC → 中控），135 字元</h3>
+<pre>ST;hb=00123;run=1;sw=C110;t0=20261112153001;t1=20261112153008;ct=00064;tq=00125;ang=00000720;tj=1;aj=1;hj=9;tt=00210;stop=0000;cs=1;n=2</pre>
+<table>
+  <tr><th>欄位</th><th>位置</th><th>長度</th><th>來源</th><th>說明</th></tr>
+  <tr><td>hb</td><td>6–10</td><td>5</td><td>D7100</td><td><b>照回最後收到的 HO hb 原值</b>（中控用它判斷 PLC 有沒有在處理 HO）</td></tr>
+  <tr><td>run</td><td>16</td><td>1</td><td>D7105</td><td>0 停止、1 運行中、2 異常</td></tr>
+  <tr><td>sw</td><td>21–24</td><td>4</td><td>D7107</td><td>狀態位元，16 進位大寫（附錄 A）</td></tr>
+  <tr><td>t0</td><td>29–42</td><td>14</td><td>D7110～D7115</td><td>作業開始時間 YYYYMMDDhhmmss，沒有就全 0</td></tr>
+  <tr><td>t1</td><td>47–60</td><td>14</td><td>D7116～D7121</td><td>作業結束時間</td></tr>
+  <tr><td>ct</td><td>65–69</td><td>5</td><td>D7122</td><td>Cycle Time，0.1 秒</td></tr>
+  <tr><td>tq</td><td>74–78</td><td>5</td><td>D7140</td><td>SD550T 完成扭力原值（最後一顆）</td></tr>
+  <tr><td>ang</td><td>84–91</td><td>8</td><td>D7141（32 位元）</td><td>SD550T 本締角度（度）</td></tr>
+  <tr><td>tj / aj / hj</td><td>96 / 101 / 106</td><td>1</td><td>D7143 / D7144 / D7145</td><td>扭力／角度／高度判定：0 NG、1 OK、9 無效</td></tr>
+  <tr><td>tt</td><td>111–115</td><td>5</td><td>D7146</td><td>鎖付時間</td></tr>
+  <tr><td>stop</td><td>122–125</td><td>4</td><td>D7147</td><td>停止要因</td></tr>
+  <tr><td>cs</td><td>130</td><td>1</td><td>D7148</td><td>SD550T 通訊狀態：0 未讀、1 完成、2 逾時、3 NG 回覆、4 格式錯</td></tr>
+  <tr><td>n</td><td>134</td><td>1</td><td>D222</td><td>目前第幾點（0 = 不在鎖付中）</td></tr>
+</table>
+<p class="small">數字欄負值送 0、超過位數送全 9。hb 與 sw 是 16 位元無號值。</p>
+
+<h3>4.5 SC（PLC → 中控），49 字元</h3>
+<pre>SC;rid=00017;raw=SN20261112-000000017            </pre>
+<table><tr><th>欄位</th><th>位置</th><th>長度</th><th>說明</th></tr>
+<tr><td>rid</td><td>7–11</td><td>5</td><td>照抄 TG 的 rid</td></tr>
+<tr><td>raw</td><td>17–48</td><td>32</td><td>條碼原文（去掉 STX/ETX），右補空白；超過 32 字截斷；<code>;</code> <code>=</code> 換成空白；讀不到填 <code>NoRead</code></td></tr></table>
+
+<!-- ============================== 5 ============================== -->
+<h2 class="pb">5. 交握流程</h2>
+<p>下圖是一件產品從連線到出站的完整順序。<b>粗體位元</b>都是 V10 原本就有的交握位元，語意與 Modbus 版完全相同，只是改由 HO（b、code）與 ST（sw）攜帶。</p>
+<figure class="fig">
+<svg viewBox="0 0 760 980" style="height:226mm;width:auto;max-width:100%" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#047857"/></marker>
+    <marker id="l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1d4ed8"/></marker>
+    <marker id="s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b45309"/></marker>
+  </defs>
+  <!-- lifelines -->
+  <rect x="40" y="8" width="150" height="34" rx="5" fill="#e8efff" stroke="#1d4ed8"/><text x="115" y="30" text-anchor="middle" font-weight="700" fill="#1d4ed8" font-size="13">中控（server）</text>
+  <rect x="330" y="8" width="150" height="34" rx="5" fill="#e6f6ef" stroke="#047857"/><text x="405" y="30" text-anchor="middle" font-weight="700" fill="#047857" font-size="13">PLC（client）</text>
+  <rect x="600" y="8" width="140" height="34" rx="5" fill="#fff4e0" stroke="#b45309"/><text x="670" y="30" text-anchor="middle" font-weight="700" fill="#b45309" font-size="13">SICK 條碼機</text>
+  <line x1="115" y1="42" x2="115" y2="970" stroke="#1d4ed8" stroke-dasharray="5 4"/>
+  <line x1="405" y1="42" x2="405" y2="970" stroke="#047857" stroke-dasharray="5 4"/>
+  <line x1="670" y1="42" x2="670" y2="970" stroke="#b45309" stroke-dasharray="5 4"/>
+
+  <!-- phase A -->
+  <rect x="8" y="52" width="744" height="18" fill="#eef1f5"/><text x="14" y="65" font-weight="700">A. 連線（D236=1、PLC 停止中）</text>
+  <line x1="403" y1="88" x2="118" y2="88" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="83" text-anchor="middle">TCP 連線（Active open → :9500）</text>
+  <line x1="403" y1="110" x2="118" y2="110" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="105" text-anchor="middle" class="mono">HI;st=02;eq=MC-D002 ;ver=0314;proto=01</text>
+  <text x="125" y="128" font-size="10" fill="#5b6675">比對站號與 eq，綁定站 2</text>
+  <line x1="118" y1="146" x2="402" y2="146" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="141" text-anchor="middle" class="mono">HO;hb=…;b=0001（B00 Remote）…</text>
+  <line x1="403" y1="168" x2="118" y2="168" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="163" text-anchor="middle" class="mono">ST;hb=照回;sw=4110（B08、B14）…</text>
+  <rect x="425" y="135" width="300" height="38" rx="4" fill="#fff" stroke="#c9d2dc"/><text x="432" y="150" font-size="10">之後雙方各自每 1 秒送一次 HO / ST，有變化立刻送。</text><text x="432" y="165" font-size="10">HMI 選 Remote + B00=1 + 心跳正常 → B08=1</text>
+
+  <!-- phase B operator -->
+  <rect x="8" y="186" width="744" height="18" fill="#eef1f5"/><text x="14" y="199" font-weight="700">B. 刷工號（中控閒置且還沒登入時輪詢）</text>
+  <line x1="118" y1="222" x2="402" y2="222" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="217" text-anchor="middle" class="mono">TG;rid=00031</text>
+  <line x1="408" y1="240" x2="667" y2="240" stroke="#b45309" stroke-width="1.6" marker-end="url(#s)"/><text x="537" y="235" text-anchor="middle" class="mono">sMN mTCgateon（2111）</text>
+  <line x1="667" y1="262" x2="408" y2="262" stroke="#b45309" stroke-width="1.6" marker-end="url(#s)"/><text x="537" y="257" text-anchor="middle" class="mono">&lt;STX&gt;A12345&lt;ETX&gt;（2112）</text>
+  <line x1="408" y1="280" x2="667" y2="280" stroke="#b45309" stroke-width="1.6" marker-end="url(#s)"/><text x="537" y="275" text-anchor="middle" class="mono">sMN mTCgateoff</text>
+  <line x1="403" y1="300" x2="118" y2="300" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="295" text-anchor="middle" class="mono">SC;rid=00031;raw=A12345…</text>
+  <line x1="118" y1="322" x2="402" y2="322" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="317" text-anchor="middle" class="mono">HO;…code=05;…op=A12345    …</text>
+  <text x="125" y="340" font-size="10" fill="#5b6675">驗證工號 → 系統訊息 5「已登入工號」；工號寫進 op（PLC → D7019～）</text>
+
+  <!-- phase C entry -->
+  <rect x="8" y="354" width="744" height="18" fill="#eef1f5"/><text x="14" y="367" font-weight="700">C. 放產品、刷序號（進站）</text>
+  <line x1="118" y1="390" x2="402" y2="390" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="385" text-anchor="middle" class="mono">TG;rid=00032</text>
+  <line x1="408" y1="404" x2="667" y2="404" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#s)"/>
+  <line x1="667" y1="416" x2="408" y2="416" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#s)"/><text x="537" y="430" text-anchor="middle" font-size="10">（同 B：觸發 → 條碼 → 關閉）</text>
+  <line x1="403" y1="436" x2="118" y2="436" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="431" text-anchor="middle" class="mono">SC;rid=00032;raw=SN20261112-000000017…</text>
+  <text x="125" y="454" font-size="10" fill="#5b6675">檢查工單、路由、前站 NG、靜電 → 準備放行（序號寫進 sn）</text>
+
+  <!-- phase D start -->
+  <rect x="8" y="468" width="744" height="18" fill="#eef1f5"/><text x="14" y="481" font-weight="700">D. 實體開始與放行</text>
+  <text x="425" y="504" font-size="10.5">作業員按綠色啟動鍵 X7 → 步序 12</text>
+  <line x1="403" y1="520" x2="118" y2="520" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="515" text-anchor="middle" class="mono">ST;…sw：<tspan font-weight="700">B01 開始=1</tspan>（立刻送）</text>
+  <line x1="118" y1="544" x2="402" y2="544" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="539" text-anchor="middle" class="mono">HO;code=09;b：<tspan font-weight="700">B04 ACK開始=1、B01 放行=1</tspan></text>
+  <text x="125" y="557" font-size="10" fill="#5b6675">code 9 進站成功；不放行：code 7/8、B01=0</text>
+  <line x1="403" y1="586" x2="118" y2="586" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="581" text-anchor="middle" class="mono">ST;sw：B01=0、B15=1;t0=開始</text>
+  <rect x="425" y="566" width="300" height="34" rx="4" fill="#fff" stroke="#c9d2dc"/><text x="432" y="580" font-size="10">PLC 步序 14 等放行（逾時 D213=30 秒）；放行只用一次，</text><text x="432" y="594" font-size="10">要看到中控把 B01 清回 0 才可再用。</text>
+  <line x1="118" y1="610" x2="402" y2="610" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="605" text-anchor="middle" class="mono">HO;b：B04 ACK開始=0</text>
+
+  <!-- phase E screw -->
+  <rect x="8" y="624" width="744" height="18" fill="#eef1f5"/><text x="14" y="637" font-weight="700">E. 鎖付（PLC 內部，D221 點，預設 2）</text>
+  <rect x="330" y="652" width="150" height="54" rx="5" fill="#e6f6ef" stroke="#047857"/><text x="405" y="672" text-anchor="middle" font-size="10.5">步序 15→30→40→50→56</text><text x="405" y="688" text-anchor="middle" font-size="10.5">每點鎖完經 RS-485 讀 SD550T</text><text x="405" y="701" text-anchor="middle" font-size="10">n=1、2…；tq/ang/判定更新</text>
+  <line x1="403" y1="724" x2="118" y2="724" stroke="#047857" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#r)"/><text x="260" y="719" text-anchor="middle" class="mono">ST（每秒）;n=1/2;tq=…;ang=…;tj/aj/hj</text>
+
+  <!-- phase F end -->
+  <rect x="8" y="738" width="744" height="18" fill="#eef1f5"/><text x="14" y="751" font-weight="700">F. 完工（四段交握）</text>
+  <line x1="403" y1="776" x2="118" y2="776" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="771" text-anchor="middle" class="mono">ST;sw：<tspan font-weight="700">B02=1、B09=1、B10=OK/NG</tspan>;t1</text>
+  <text x="125" y="795" font-size="10" fill="#5b6675">寫入生產履歷（出站複刷可再送 TG）</text>
+  <line x1="118" y1="818" x2="402" y2="818" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="813" text-anchor="middle" class="mono">HO;code=11;b：<tspan font-weight="700">B05 ACK完工=1</tspan>、B01=0</text>
+  <line x1="403" y1="842" x2="118" y2="842" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="837" text-anchor="middle" class="mono">ST;sw：B02=0、B09=0（完工待收清除）</text>
+  <line x1="118" y1="866" x2="402" y2="866" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#l)"/><text x="260" y="861" text-anchor="middle" class="mono">HO;b：B05 ACK完工=0</text>
+  <rect x="425" y="768" width="300" height="76" rx="4" fill="#fff" stroke="#c9d2dc"/>
+  <text x="432" y="784" font-size="10">B02 保持到收到 ACK完工，不逾時。</text>
+  <text x="432" y="799" font-size="10">完工待收期間中控斷線：亮紅燈、資料保留，</text>
+  <text x="432" y="814" font-size="10">恢復連線後中控照常收（ST 會一直帶 B02=1）。</text>
+  <text x="432" y="829" font-size="10">B09/B10 與 t1、tq 等數值在 B02=1 期間不可變。</text>
+
+  <!-- phase G -->
+  <rect x="8" y="880" width="744" height="18" fill="#eef1f5"/><text x="14" y="893" font-weight="700">G. 回到待命，等下一件（回到 C）</text>
+  <line x1="403" y1="920" x2="118" y2="920" stroke="#047857" stroke-width="1.6" marker-end="url(#r)"/><text x="260" y="915" text-anchor="middle" class="mono">ST;sw：B14 Ready=1、B15=0</text>
+  <text x="125" y="945" font-size="10" fill="#5b6675">任何時刻：5 秒沒 HO → PLC 關線重連、降 Local；5 秒沒 ST → 中控判站離線。</text>
+</svg>
+<figcaption>圖 4　一件產品的完整交握順序（藍＝中控送、綠＝PLC 送、橘＝PLC↔SICK）</figcaption>
+</figure>
+
+<h3>5.1 交握規則重點（PLC 必須照做）</h3>
+<table>
+  <tr><th style="width:22%">規則</th><th>內容</th></tr>
+  <tr><td>心跳</td><td>中控 hb 每秒 +1。PLC：D7000 有變化就算連線正常；<b>D216（預設 5.0 秒）沒變化 = 中控通訊中斷 M2052</b>，自動降 Local。ST 的 hb 一律照回最後收到的值。</td></tr>
+  <tr><td>Remote / Local</td><td>HMI 選 Remote（M2050）且 B00=1 且心跳正常才是 Remote（B08=1）。只在停止或待機時切換；加工中斷線做完這一件。</td></tr>
+  <tr><td>開始</td><td>B01 開始 保持到看到 B04 ACK開始。</td></tr>
+  <tr><td>放行</td><td>B01 防呆放行 在通訊中斷時不算數；用過一次後，要中控清回 0 才可再用。</td></tr>
+  <tr><td>完工</td><td>B02 完工 + B09 Result_Ready 保持到 B05 ACK完工；收到後兩者一起清。</td></tr>
+  <tr><td>立刻送 ST</td><td>D7107（sw）或 D7105（run）一變化就送，不等 1 秒，讓中控不漏掉短暫的邊緣。</td></tr>
+  <tr><td>不准用 Modbus 寫</td><td>D236=1 時，D7000～D7029 只能由 HO 寫入；中控不可再用 Modbus 寫這一站（Modbus 讀可以）。</td></tr>
+</table>
+
+<!-- ============================== 6 ============================== -->
+<h2 class="pb">6. 條碼機（SICK Lector）由 PLC 控制</h2>
+<figure class="fig">
+<svg viewBox="0 0 760 420" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="11.5">
+  <defs><marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1b2430"/></marker></defs>
+  <rect x="20" y="15" width="160" height="46" rx="23" fill="#e8efff" stroke="#1d4ed8"/><text x="100" y="35" text-anchor="middle">收到 TG;rid=n</text><text x="100" y="51" text-anchor="middle" font-size="10">D7169 +1</text>
+  <polygon points="300,15 390,38 300,61 210,38" fill="#fff4e0" stroke="#b45309"/><text x="300" y="35" text-anchor="middle" font-size="11">讀取中？</text><text x="300" y="50" text-anchor="middle" font-size="9.5">D2310≠0</text>
+  <rect x="430" y="15" width="300" height="46" rx="6" fill="#fdecec" stroke="#b91c1c"/><text x="580" y="35" text-anchor="middle">忽略這一筆（不回 SC）</text><text x="580" y="51" text-anchor="middle" font-size="10">中控 4 秒等不到會自己重送</text>
+  <polygon points="300,95 390,118 300,141 210,118" fill="#fff4e0" stroke="#b45309"/><text x="300" y="115" text-anchor="middle" font-size="11">SICK 連線中？</text><text x="300" y="130" text-anchor="middle" font-size="9.5">連線 3（與 2）</text>
+  <rect x="430" y="95" width="300" height="46" rx="6" fill="#fdecec" stroke="#b91c1c"/><text x="580" y="115" text-anchor="middle">直接回 SC;raw=NoRead</text><text x="580" y="131" text-anchor="middle" font-size="10">D7167 +1</text>
+  <rect x="200" y="175" width="200" height="50" rx="6" fill="#fff" stroke="#1b2430"/><text x="300" y="195" text-anchor="middle">送觸發</text><text x="300" y="212" text-anchor="middle" font-size="10" class="mono">&lt;STX&gt;sMN mTCgateon&lt;ETX&gt; → 2111</text>
+  <rect x="200" y="255" width="200" height="60" rx="6" fill="#fff" stroke="#1b2430"/><text x="300" y="275" text-anchor="middle">從 2112 收位元組</text><text x="300" y="291" text-anchor="middle" font-size="10">STX 開始；ETX / CR / LF 結束</text><text x="300" y="305" text-anchor="middle" font-size="10">最多 32 字；; = 換空白</text>
+  <polygon points="560,255 650,285 560,315 470,285" fill="#fff4e0" stroke="#b45309"/><text x="560" y="282" text-anchor="middle" font-size="11">收到 ETX？</text><text x="560" y="297" text-anchor="middle" font-size="9.5">或 3 秒（D249）到</text>
+  <rect x="200" y="345" width="200" height="50" rx="6" fill="#fff" stroke="#1b2430"/><text x="300" y="365" text-anchor="middle">送關閉</text><text x="300" y="382" text-anchor="middle" font-size="10" class="mono">&lt;STX&gt;sMN mTCgateoff&lt;ETX&gt;</text>
+  <rect x="480" y="345" width="250" height="50" rx="23" fill="#e6f6ef" stroke="#047857"/><text x="605" y="365" text-anchor="middle">回 SC;rid=n;raw=條碼 或 NoRead</text><text x="605" y="382" text-anchor="middle" font-size="10">D7166 +1（NoRead 另 D7167 +1）</text>
+  <line x1="180" y1="38" x2="208" y2="38" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/>
+  <line x1="390" y1="38" x2="428" y2="38" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/><text x="408" y="32" font-size="10">是</text>
+  <line x1="300" y1="61" x2="300" y2="93" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/><text x="308" y="80" font-size="10">否</text>
+  <line x1="390" y1="118" x2="428" y2="118" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/><text x="408" y="112" font-size="10">否</text>
+  <line x1="300" y1="141" x2="300" y2="173" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/><text x="308" y="160" font-size="10">是</text>
+  <line x1="300" y1="225" x2="300" y2="253" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/>
+  <line x1="400" y1="285" x2="468" y2="285" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/>
+  <path d="M560 315 V330 H300 V343" fill="none" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/>
+  <line x1="400" y1="370" x2="478" y2="370" stroke="#1b2430" stroke-width="1.5" marker-end="url(#c)"/>
+  <path d="M650 285 H700 V250 H330 V256" fill="none" stroke="#1b2430" stroke-width="1.2" stroke-dasharray="4 3"/><text x="676" y="246" font-size="10">否：繼續收</text>
+</svg>
+<figcaption>圖 5　PLC 處理 TG 的流程（讀取步序 D2310：0 待命、1 等條碼、2 送關閉、3 送 SC）</figcaption>
+</figure>
+<table>
+  <tr><th style="width:22%">項目</th><th>規定</th></tr>
+  <tr><td>觸發方式 D248</td><td>0（預設）= CoLa-A：觸發埠送 <code>&lt;STX&gt;sMN mTCgateon&lt;ETX&gt;</code> 開始讀，讀完或逾時送 <code>&lt;STX&gt;sMN mTCgateoff&lt;ETX&gt;</code>（站 8 Lector611 實測可用）。<br>1 = 在資料埠送 1 個位元組 STX（0x02），與舊中控 ScannerAdapter 的作法相同。</td></tr>
+  <tr><td>連線</td><td>觸發埠 D241（預設 2111）、資料埠 D242（預設 2112），IP D237～D240（預設 192.168.1.25）。<b>D241 = D242 時只用一條連線</b>（觸發與收條碼都走連線 3），連線數不夠時用這個。</td></tr>
+  <tr><td>觸發埠的回覆</td><td>CoLa 回覆（如 <code>sAN mTCgateon 1</code>）讀出來丟掉即可，否則接收緩衝會塞滿。</td></tr>
+  <tr><td>條碼內容</td><td>只取 STX 與 ETX 之間；若 SICK 設定沒有 STX，第一個可見字元就開始收，碰到 ETX/CR/LF 結束。最多 32 字，多的丟掉。</td></tr>
+  <tr><td>時間</td><td>PLC 讀取逾時 D249 = 3.0 秒；中控等 SC 4 秒。PLC 一定要在中控放棄之前回覆。</td></tr>
+  <tr><td>一次一筆</td><td>讀取中再收到 TG 一律忽略（不回）。中控逾時後自己重送新的 rid。</td></tr>
+</table>
+
+<!-- ============================== 7 ============================== -->
+<h2 class="pb">7. 連線狀態機、逾時與錯誤處理</h2>
+<figure class="fig">
+<svg viewBox="0 0 760 330" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1b2430"/></marker></defs>
+  <g font-size="12.5" font-weight="700">
+  <rect x="20" y="130" width="120" height="56" rx="28" fill="#f4f6f8" stroke="#1b2430" stroke-width="1.6"/><text x="80" y="155" text-anchor="middle">0 未連線</text>
+  <rect x="220" y="30" width="130" height="56" rx="28" fill="#fff4e0" stroke="#b45309" stroke-width="1.6"/><text x="285" y="55" text-anchor="middle">1 開啟中</text>
+  <rect x="440" y="130" width="130" height="56" rx="28" fill="#e6f6ef" stroke="#047857" stroke-width="2.2"/><text x="505" y="155" text-anchor="middle">2 已連線</text>
+  <rect x="440" y="250" width="130" height="56" rx="28" fill="#fdecec" stroke="#b91c1c" stroke-width="1.6"/><text x="505" y="275" text-anchor="middle">3 關閉中</text>
+  <rect x="220" y="250" width="130" height="56" rx="28" fill="#f4f6f8" stroke="#1b2430" stroke-width="1.6"/><text x="285" y="275" text-anchor="middle">4 等重連</text>
+  </g>
+  <g font-size="10" fill="#5b6675"><text x="80" y="172" text-anchor="middle">D7160 = 0</text><text x="505" y="172" text-anchor="middle">送 HI，收送 HO/ST</text></g>
+  <path d="M100 130 C120 70 170 58 218 58" fill="none" stroke="#1b2430" stroke-width="1.5" marker-end="url(#d)"/><text x="14" y="62">D236=1 生效</text><text x="14" y="77">→ SP.SOCOPEN</text>
+  <path d="M350 58 C420 60 470 90 495 128" fill="none" stroke="#047857" stroke-width="1.6" marker-end="url(#d)"/><text x="396" y="50">開啟完成</text>
+  <path d="M300 86 C330 160 420 230 448 252" fill="none" stroke="#b91c1c" stroke-width="1.4" marker-end="url(#d)"/><text x="352" y="205" text-anchor="end">開啟失敗 / 10 秒未完成</text>
+  <line x1="505" y1="186" x2="505" y2="248" stroke="#b91c1c" stroke-width="1.6" marker-end="url(#d)"/>
+  <text x="515" y="205">5 秒沒 HO（D7172=14）</text><text x="515" y="219">對方關線（SD10680 位元掉）</text><text x="515" y="233">送出失敗、D236 改回 0</text>
+  <line x1="440" y1="278" x2="352" y2="278" stroke="#1b2430" stroke-width="1.5" marker-end="url(#d)"/><text x="396" y="268" text-anchor="middle" font-size="9.5">完成或 5 秒</text>
+  <path d="M220 278 C150 278 90 240 80 188" fill="none" stroke="#1b2430" stroke-width="1.5" marker-end="url(#d)"/><text x="90" y="240">3 秒後</text>
+</svg>
+<figcaption>圖 6　PLC 每條連線的狀態機（連線 1 狀態 = D7160；SICK 連線 2/3 = D7164/D7165，規則相同但沒有 HO 逾時）</figcaption>
+</figure>
+<table>
+  <tr><th style="width:26%">狀況</th><th>PLC 行為</th><th>中控行為</th></tr>
+  <tr><td>5 秒沒收到 HO</td><td>關線、3 秒後重連；心跳逾時 → 中控通訊中斷 M2052、降 Local</td><td>—</td></tr>
+  <tr><td>5 秒沒收到 ST</td><td>—</td><td>判站離線（讀取失敗），等 PLC 重連</td></tr>
+  <tr><td>格式錯（長度、分隔字、字元）</td><td>整筆丟、D7162 +1，不斷線、不動 D7000～D7029</td><td>整筆丟、計數 +1，不斷線</td></tr>
+  <tr><td>第一筆不是 HI / eq 不符</td><td>—（會被關線，等 3 秒重連）</td><td>關線</td></tr>
+  <tr><td>半筆資料時斷線</td><td>行緩衝清空</td><td>同左</td></tr>
+  <tr><td>完工待收時斷線</td><td>B02/B09 與結果資料保留，紅燈；重連後 ST 繼續帶 B02=1</td><td>重連後照常收、回 ACK完工</td></tr>
+  <tr><td>SICK 連不上</td><td>TG 直接回 NoRead；每 3 秒重連</td><td>收到 NoRead</td></tr>
+</table>
+
+<!-- ============================== 8 ============================== -->
+<h2 class="pb">8. PLC 端實作規格（FX5，參考實作 v3.14）</h2>
+<h3>8.1 指令（GX Works3 ST，FX5S 已驗證可編譯）</h3>
+<pre>SP_SOCOPEN (EN, 'U0', 連線號, D2200, M2200);          (* 控制資料 10 字、完成位元 2 個 *)
+SP_SOCCLOSE(EN, 'U0', 連線號, D2210, M2202);
+SP_SOCSND  (EN, 'U0', 連線號, D2212, D6800, M2204);   (* D6800 = 位元組數，D6801~ 資料 *)
+SP_SOCRCV  (EN, 'U0', 連線號, D2214, D3000, M2206);   (* D3000 = 位元組數，D3001~ 資料 *)</pre>
+<ul>
+  <li>第 2 個引數<b>必須寫成字串 <code>'U0'</code>（含單引號）</b>，寫成 U0 會報 0x12011067。</li>
+  <li>EN 只給 <b>1 個掃描</b>的脈衝；指令每個掃描都要呼叫（EN=FALSE 時不動作）。完成位元 +0 在完成的那個掃描 ON，+1 = 異常完成，錯誤碼在控制資料 +1。</li>
+  <li>開啟用<b>控制資料</b>指定對方，參數頁「外部設備連接設定」<b>不要佔用連線 1～3</b>：</li>
+</ul>
+<table>
+  <tr><th>控制資料</th><th>值</th><th>說明</th></tr>
+  <tr><td>+0</td><td>16#8000</td><td>用控制資料 +2～+9 的設定開啟</td></tr>
+  <tr><td>+2</td><td>16#0200</td><td>TCP、socket 通訊、Active open</td></tr>
+  <tr><td>+3</td><td>4001 / 4002 / 4003</td><td>本機埠（避開 5549～5569）</td></tr>
+  <tr><td>+4 / +5</td><td>IP 低字 / 高字</td><td>192.168.1.200 → +4 = 16#01C8、+5 = 16#C0A8</td></tr>
+  <tr><td>+6</td><td>9500 / 2111 / 2112</td><td>對方埠</td></tr>
+</table>
+<p>狀態特殊暫存器：<b>SD10680</b> 開啟完成（bit0 = 連線 1）、<b>SD10682</b> 收到資料（bit0 = 連線 1）。收到資料位元 ON 且沒有接收中，就發一次 SP.SOCRCV；一次只能有一個 SOCSND 在進行中（等完成位元再送下一筆，優先順序 HI → SC → ST）。</p>
+
+<h3>8.2 掃描順序</h3>
+<figure class="fig">
+<svg viewBox="0 0 760 92" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1b2430"/></marker></defs>
+  <g>
+  <rect x="5" y="20" width="62" height="40" rx="4" fill="#f4f6f8" stroke="#8a94a3"/><text x="36" y="44" text-anchor="middle">P00~P10</text>
+  <rect x="80" y="12" width="110" height="56" rx="4" fill="#e6f6ef" stroke="#047857" stroke-width="2"/><text x="135" y="36" text-anchor="middle" font-weight="700">P16_Sock</text><text x="135" y="54" text-anchor="middle" font-size="9.5">連線、收 HO/TG、SICK</text>
+  <rect x="203" y="20" width="80" height="40" rx="4" fill="#f4f6f8" stroke="#8a94a3"/><text x="243" y="38" text-anchor="middle">P15</text><text x="243" y="53" text-anchor="middle" font-size="9">心跳/ACK/校時</text>
+  <rect x="296" y="20" width="230" height="40" rx="4" fill="#f4f6f8" stroke="#8a94a3"/><text x="411" y="44" text-anchor="middle">P20 ~ P70（P30 自動步序不改）</text>
+  <rect x="539" y="20" width="80" height="40" rx="4" fill="#f4f6f8" stroke="#8a94a3"/><text x="579" y="38" text-anchor="middle">P75</text><text x="579" y="53" text-anchor="middle" font-size="9">組 D7100~</text>
+  <rect x="632" y="12" width="122" height="56" rx="4" fill="#e6f6ef" stroke="#047857" stroke-width="2"/><text x="693" y="36" text-anchor="middle" font-weight="700">P76_Sock_Out</text><text x="693" y="54" text-anchor="middle" font-size="9.5">送 HI / ST / SC</text>
+  </g>
+  <g stroke="#1b2430" stroke-width="1.3"><line x1="67" y1="40" x2="78" y2="40" marker-end="url(#e)"/><line x1="190" y1="40" x2="201" y2="40" marker-end="url(#e)"/><line x1="283" y1="40" x2="294" y2="40" marker-end="url(#e)"/><line x1="526" y1="40" x2="537" y2="40" marker-end="url(#e)"/><line x1="619" y1="40" x2="630" y2="40" marker-end="url(#e)"/></g>
+  <text x="380" y="86" text-anchor="middle" font-size="10" fill="#5b6675">P16 在 P15 之前：HO 寫進 D7000～D7029 後，P15 同一個掃描就用到；P76 在 P75 之後：送出的是這個掃描剛組好的 D7100～。</text>
+</svg>
+<figcaption>圖 7　MAIN 程式執行順序</figcaption>
+</figure>
+
+<h3>8.3 軟元件</h3>
+<table>
+  <tr><th>軟元件</th><th>內容</th></tr>
+  <tr><td>D236</td><td>傳輸 0 = Modbus、1 = socket（停電保持；只在 D100 = 0 停止中生效，生效值 M2190）</td></tr>
+  <tr><td>D237～D240 / D241 / D242</td><td>SICK IP 四段 / 觸發埠 2111 / 資料埠 2112</td></tr>
+  <tr><td>D243～D246 / D247</td><td>中控 IP 四段 / 埠 9500</td></tr>
+  <tr><td>D248 / D249</td><td>SICK 觸發方式 0 CoLa、1 STX / 讀取逾時 0.1 秒（預設 30）</td></tr>
+  <tr><td>D7160</td><td>中控連線狀態 0～4（圖 6）</td></tr>
+  <tr><td>D7161 / D7162</td><td>收到 HO 筆數 / 格式錯誤次數</td></tr>
+  <tr><td>D7163 / D7172</td><td>最後錯誤碼（指令完成狀態） / 錯誤來源：n1 開啟失敗、n2 送出失敗、n3 接收失敗、14 HO 逾時、n5 對方關閉（n = 連線號）</td></tr>
+  <tr><td>D7164 / D7165</td><td>SICK 觸發 / 資料連線狀態</td></tr>
+  <tr><td>D7166～D7169</td><td>SC 送出 / NoRead / ST 送出 / 收到 TG 筆數</td></tr>
+  <tr><td>D7170 / D7171 / D7173 / D7174</td><td>距上次 HO（0.1 秒）/ 生效傳輸 / HI 送出筆數 / 最後條碼長度</td></tr>
+  <tr><td>D3000～、D4100～、D5400～、D6800～</td><td>中控接收緩衝、行緩衝、SICK 資料接收緩衝、送出緩衝</td></tr>
+</table>
+<p class="small">D7160～D7174 在 Modbus 對映區內，現場可用 Modbus 或 GX Works3 監看。</p>
+<div class="note"><b>模擬測試模式</b>（GX Simulator3 不能跑 socket 指令）：M50 模擬模式 + M2235 → 不執行 socket 指令、連線直接當作已連上；M2238／M2185 載入 HO 範例、M2189 錯誤訊框、M2188＋M2187 分段訊框、M2239 TG、M2186 模擬 SICK 回條碼。送出內容可在 D6800～ 檢查。</div>
+
+<!-- ============================== 9 ============================== -->
+<h2 class="pb">9. 驗收測試清單</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:30%">項目</th><th>方法</th><th>合格條件</th></tr>
+  <tr><td>1</td><td>D236=0 不受影響</td><td>D236=0 跑原本流程</td><td>與 v3.13 相同；D7160～ 全 0，不開任何 socket</td></tr>
+  <tr><td>2</td><td>連線與 HI</td><td>筆電跑 <code>python fake_host.py</code>，D236=1</td><td>連上後第一筆 HI，38 字元，eq=MC-D002</td></tr>
+  <tr><td>3</td><td>HO 解析</td><td>fake_host 每秒送 HO；<code>b 0</code>、<code>sn …</code>、<code>ts</code></td><td>D7000～D7029 與送出值一致；ts 全 0 時時鐘不動</td></tr>
+  <tr><td>4</td><td>ST 週期與變化</td><td>觀察 fake_host 輸出</td><td>每秒一筆 135 字元；hb 照回；B00=1 後 sw 出現 B08</td></tr>
+  <tr><td>5</td><td>格式錯誤</td><td><code>raw HO;hb=1</code></td><td>D7162 +1，連線不斷，D7000～ 不變</td></tr>
+  <tr><td>6</td><td>HO 逾時</td><td>fake_host <code>pause</code> 6 秒</td><td>PLC 關線、3 秒後重連、再送 HI；期間降 Local</td></tr>
+  <tr><td>7</td><td>條碼</td><td><code>t</code>（送 TG），SICK 前放條碼</td><td>3 秒內 SC，rid 相同，raw 正確；沒條碼回 NoRead</td></tr>
+  <tr><td>8</td><td>整線</td><td>中控 transport=socket，跑登入、靜電、進站、鎖付、出站</td><td>生產履歷有這一件，扭力角度正確，ACK 四段完成</td></tr>
+  <tr><td>9</td><td>斷電／拔線</td><td>運轉中拔網路線再接回</td><td>做完這一件；完工資料重連後補送</td></tr>
+</table>
+<div class="must"><b>寫入實機前</b>：備份 PLC 現有程式；確認 FX5S 韌體與連線數（Modbus/TCP、HMI、GX Works3 再加 3 條 socket）；中控 9500 已開；SICK 的 IP 與觸發方式確認。寫入 PLC 需要現場負責人（Jason）明確同意。</div>
+
+<!-- ============================== 附錄 ============================== -->
+<h2 class="pb">附錄 A　ST 狀態位元 sw（D7107）</h2>
+<table>
+  <tr><th>位元</th><th>名稱</th><th>PLC 設定條件</th></tr>
+  <tr><td>B01</td><td>實體開始</td><td>步序 12（按啟動後）；保持到中控 ACK開始</td></tr>
+  <tr><td>B02</td><td>完工</td><td>完工待收；保持到 ACK完工（不逾時）</td></tr>
+  <tr><td>B03</td><td>機械異常中斷</td><td>機台異常（不含鎖付 NG）</td></tr>
+  <tr><td>B04 / B05</td><td>靜電 OK / NG</td><td>靜電乾接點</td></tr>
+  <tr><td>B08</td><td>PLC 模式</td><td>1 = Remote</td></tr>
+  <tr><td>B09</td><td>Result_Ready</td><td>結果資料已更新（與 B02 一起清）</td></tr>
+  <tr><td>B10</td><td>Overall_Result</td><td>1 = 整件 OK</td></tr>
+  <tr><td>B13 / B14 / B15</td><td>Alarm / Ready / Run</td><td>異常中 / 就緒待命 / 加工中</td></tr>
+  <tr><td>其他</td><td>—</td><td>送 0</td></tr>
+</table>
+<h2>附錄 B　HO 控制位元 b（D7002）</h2>
+<table>
+  <tr><th>位元</th><th>名稱</th><th>說明</th></tr>
+  <tr><td>B00</td><td>Remote</td><td>1 = 系統模式（Remote）</td></tr>
+  <tr><td>B01</td><td>防呆放行</td><td>1 = 准許機台動作；單次使用，要清回 0 才可再用</td></tr>
+  <tr><td>B04</td><td>ACK開始</td><td>回應 B01 實體開始</td></tr>
+  <tr><td>B05</td><td>ACK完工</td><td>中控資料入庫後回應 B02</td></tr>
+  <tr><td>B08～B15</td><td>（站 9 用）</td><td>站 2 不使用</td></tr>
+</table>
+<h2>附錄 C　系統訊息碼 code（D7001）</h2>
+<table>
+  <tr><th>碼</th><th>訊息</th><th>碼</th><th>訊息</th></tr>
+  <tr><td>0</td><td>閒置</td><td>6</td><td>已登出工號</td></tr>
+  <tr><td>1</td><td>系統連線恢復 Remote 模式</td><td>7</td><td>靜電未 Pass 請確認</td></tr>
+  <tr><td>2</td><td>未指派工單請確認</td><td>8</td><td>前站 NG 尚未排除請確認</td></tr>
+  <tr><td>3</td><td>已指派工單</td><td>9</td><td>進站成功－現行作業序號</td></tr>
+  <tr><td>4</td><td>工號未登入或錯誤請確認</td><td>10</td><td>出站失敗－請確認</td></tr>
+  <tr><td>5</td><td>已登入工號</td><td>11</td><td>出站成功</td></tr>
+</table>
+
+<script>
+// 位元組配置圖：依欄位表畫出固定位置
+const FR = {
+  'HO（98）': ['HO', ['hb',5], ['code',2], ['b',4], ['sn',20], ['wo',12], ['op',10], ['ts',14]],
+  'ST（135）': ['ST', ['hb',5], ['run',1], ['sw',4], ['t0',14], ['t1',14], ['ct',5], ['tq',5], ['ang',8], ['tj',1], ['aj',1], ['hj',1], ['tt',5], ['stop',4], ['cs',1], ['n',1]],
+  'HI（38）': ['HI', ['st',2], ['eq',8], ['ver',4], ['proto',2]],
+  'SC（49）': ['SC', ['rid',5], ['raw',32]],
+  'TG（12）': ['TG', ['rid',5]],
+};
+const COL = ['#c7d7fe','#bbf0d6','#fde2b0','#f9c6d0','#d9ccfb','#c9eef6','#e9f5b8'];
+let html = '';
+for (const [name, def] of Object.entries(FR)) {
+  const segs = [{t: def[0], lit: true}];
+  def.slice(1).forEach(([k, w], i) => { segs.push({t: ';' + k + '=', lit: true}); segs.push({t: k, w, c: COL[i % COL.length]}); });
+  const total = segs.reduce((s, x) => s + (x.lit ? x.t.length : x.w), 0);
+  const W = 700, unit = Math.min(10, W / total), H = 40;
+  let x = 10, pos = 0, g = '';
+  for (const s of segs) {
+    const n = s.lit ? s.t.length : s.w, w = n * unit;
+    g += `<rect x="${x}" y="8" width="${w}" height="22" fill="${s.lit ? '#e3e7ec' : s.c}" stroke="#7b8794" stroke-width="0.6"/>`;
+    if (!s.lit) {
+      if (w >= 22) g += `<text x="${x + w / 2}" y="23" font-size="9.5" text-anchor="middle" font-weight="700">${s.t}</text>`;
+      g += `<text x="${x}" y="40" font-size="8" fill="#5b6675">${pos}</text>`;
+    } else if (w >= 16) g += `<text x="${x + w / 2}" y="23" font-size="8.5" text-anchor="middle" fill="#5b6675" class="mono">${s.t.replace(/</g,'&lt;')}</text>`;
+    x += w; pos += n;
+  }
+  g += `<text x="${x + 2}" y="23" font-size="8.5" fill="#5b6675">CR LF</text>`;
+  html += `<figure class="fig" style="margin:1mm 0 2mm"><svg viewBox="0 0 760 46" width="100%" xmlns="http://www.w3.org/2000/svg">${g}</svg><figcaption>${name}：值的起始位置（0 起算）標在格子下方；窄欄名稱見下表</figcaption></figure>`;
+}
+document.getElementById('maps').innerHTML = html;
+</script>
+</body></html>
